@@ -1,0 +1,148 @@
+name: Preview Deployment (OIDC)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# OIDC permissions
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write  # Para comentar no PR
+
+jobs:
+  preview:
+    name: Build Preview
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run type check
+        run: npx tsc --noEmit
+
+      - name: Build application
+        run: npm run build
+        env:
+          # Valores fake para test build
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+          NODE_ENV: production
+
+      - name: Comment PR (Success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.issue.number;
+            const region = process.env.AWS_REGION || 'us-east-1';
+            
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preview Build Success
+              
+✅ Build completed successfully!
+
+📦 AWS Amplify will automatically create a preview deployment for this PR.
+
+🔗 Preview URL: \`https://pr-${prNumber}.xxxxx.amplifyapp.com\`
+
+⏱️ Build time: ${process.env.BUILD_TIME || 'N/A'}
+
+💡 The preview URL will be available in the Amplify Console after deployment completes (~5-10 minutes).
+
+---
+**Note:** Preview deploys are created automatically by AWS Amplify when you create a Pull Request.
+`
+            })
+
+  security-check:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Check for secrets in code
+        run: |
+          echo "🔍 Scanning for hardcoded secrets..."
+          
+          # JWT tokens
+          if grep -r "eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" app/ components/ lib/ 2>/dev/null; then
+            echo "❌ JWT tokens found in code!"
+            exit 1
+          fi
+          
+          # AWS Access Keys
+          if grep -r "AKIA[0-9A-Z]{16}" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null; then
+            echo "❌ AWS Access Keys found in code!"
+            exit 1
+          fi
+          
+          # Generic API keys
+          if grep -r "sk_live_[a-zA-Z0-9]" --include="*.ts" --include="*.tsx" . 2>/dev/null; then
+            echo "❌ API keys found in code!"
+            exit 1
+          fi
+          
+          echo "✅ No secrets found in code"
+
+      - name: Check for IAM Users (should not exist)
+        run: |
+          echo "🔍 Verifying IAM Roles architecture..."
+          
+          # Verificar se há menções a IAM Users nos docs
+          if grep -r "IAM User" --include="*.md" --include="*.yml" --include="*.yaml" . 2>/dev/null | grep -v "sem IAM User\|without IAM User\|no IAM User"; then
+            echo "⚠️  Found references to IAM Users - we should only use IAM Roles!"
+          else
+            echo "✅ Confirmed: No IAM Users in architecture"
+          fi
+          
+          # Verificar se há AWS_ACCESS_KEY_ID sendo usado
+          if grep -r "AWS_ACCESS_KEY_ID" --include="*.yml" --include="*.yaml" .github/ 2>/dev/null; then
+            echo "❌ Found AWS_ACCESS_KEY_ID in workflows - we should use OIDC!"
+            exit 1
+          fi
+          
+          echo "✅ Architecture uses IAM Roles (OIDC) only"
+
+      - name: Validate OIDC configuration
+        run: |
+          echo "🔍 Validating OIDC configuration in workflows..."
+          
+          if ! grep -q "id-token: write" .github/workflows/deploy.yml; then
+            echo "❌ Missing 'id-token: write' permission in deploy.yml"
+            exit 1
+          fi
+          
+          if ! grep -q "role-to-assume" .github/workflows/deploy.yml; then
+            echo "❌ Missing 'role-to-assume' in deploy.yml"
+            exit 1
+          fi
+          
+          echo "✅ OIDC configuration looks good"

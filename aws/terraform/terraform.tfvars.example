@@ -1,0 +1,24 @@
+# Terraform Variables - Example
+# Copie para terraform.tfvars e preencha com seus valores
+# ⚠️ NUNCA commite terraform.tfvars (está no .gitignore)
+
+# AWS Configuration
+aws_region  = "us-east-1"  # ou sa-east-1 (São Paulo)
+environment = "prod"
+
+# GitHub Repository (para OIDC trust policy)
+# Formato: owner/repo
+github_repository = "seu-usuario/pequenos-grupos"
+
+# Email para alertas
+alert_email = "seu@email.com"
+
+# Supabase Credentials
+# Obtenha em: https://supabase.com/dashboard → Settings → API
+supabase_url              = "https://xxxxx.supabase.co"
+supabase_anon_key         = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+supabase_service_role_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Cron Secret
+# Gerar com: openssl rand -base64 32
+cron_secret = "sua-senha-aleatoria-super-secreta-aqui"

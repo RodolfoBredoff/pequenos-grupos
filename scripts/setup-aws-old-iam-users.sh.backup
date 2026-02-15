@@ -1,0 +1,243 @@
+#!/bin/bash
+
+# Script de Setup AWS - Pequenos Grupos Manager
+# Automatiza a criação de recursos AWS necessários
+
+set -e
+
+echo "======================================"
+echo "  AWS Setup - Pequenos Grupos"
+echo "======================================"
+echo ""
+
+# Verificar se AWS CLI está instalado
+if ! command -v aws &> /dev/null; then
+    echo "❌ AWS CLI não está instalado!"
+    echo ""
+    echo "Instale com:"
+    echo "  - MacOS: brew install awscli"
+    echo "  - Linux: pip install awscli"
+    echo "  - Windows: https://aws.amazon.com/cli/"
+    exit 1
+fi
+
+echo "✅ AWS CLI encontrado: $(aws --version)"
+echo ""
+
+# Verificar credenciais AWS
+if ! aws sts get-caller-identity &> /dev/null; then
+    echo "❌ Credenciais AWS não configuradas!"
+    echo ""
+    echo "Configure com:"
+    echo "  aws configure"
+    exit 1
+fi
+
+echo "✅ Credenciais AWS válidas"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+echo "   Account ID: $ACCOUNT_ID"
+echo ""
+
+# Solicitar informações
+read -p "AWS Region (ex: us-east-1): " AWS_REGION
+AWS_REGION=${AWS_REGION:-us-east-1}
+
+read -p "Supabase Project URL: " SUPABASE_URL
+read -p "Supabase Anon Key: " SUPABASE_ANON_KEY
+read -sp "Supabase Service Role Key: " SUPABASE_SERVICE_ROLE_KEY
+echo ""
+read -p "Cron Secret (deixe vazio para gerar): " CRON_SECRET
+
+if [ -z "$CRON_SECRET" ]; then
+    CRON_SECRET=$(openssl rand -base64 32)
+    echo "✅ Cron Secret gerado automaticamente"
+fi
+
+echo ""
+echo "======================================"
+echo "  Criando Parâmetros no SSM"
+echo "======================================"
+echo ""
+
+# Criar parâmetros no SSM Parameter Store
+aws ssm put-parameter \
+  --name "/pequenos-grupos/prod/NEXT_PUBLIC_SUPABASE_URL" \
+  --value "$SUPABASE_URL" \
+  --type "String" \
+  --description "Supabase Project URL" \
+  --region $AWS_REGION \
+  --overwrite \
+  || echo "⚠️  Parâmetro já existe, pulando..."
+
+aws ssm put-parameter \
+  --name "/pequenos-grupos/prod/NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+  --value "$SUPABASE_ANON_KEY" \
+  --type "SecureString" \
+  --description "Supabase Anon Key" \
+  --region $AWS_REGION \
+  --overwrite \
+  || echo "⚠️  Parâmetro já existe, pulando..."
+
+aws ssm put-parameter \
+  --name "/pequenos-grupos/prod/SUPABASE_SERVICE_ROLE_KEY" \
+  --value "$SUPABASE_SERVICE_ROLE_KEY" \
+  --type "SecureString" \
+  --description "Supabase Service Role Key" \
+  --region $AWS_REGION \
+  --overwrite \
+  || echo "⚠️  Parâmetro já existe, pulando..."
+
+aws ssm put-parameter \
+  --name "/pequenos-grupos/prod/CRON_SECRET" \
+  --value "$CRON_SECRET" \
+  --type "SecureString" \
+  --description "Cron Job Authentication Secret" \
+  --region $AWS_REGION \
+  --overwrite \
+  || echo "⚠️  Parâmetro já existe, pulando..."
+
+aws ssm put-parameter \
+  --name "/pequenos-grupos/prod/NODE_ENV" \
+  --value "production" \
+  --type "String" \
+  --description "Node Environment" \
+  --region $AWS_REGION \
+  --overwrite \
+  || echo "⚠️  Parâmetro já existe, pulando..."
+
+echo ""
+echo "✅ Parâmetros criados no SSM Parameter Store!"
+echo ""
+
+echo "======================================"
+echo "  Criando IAM Policy"
+echo "======================================"
+echo ""
+
+# Criar IAM Policy
+POLICY_JSON=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AmplifyAccess",
+      "Effect": "Allow",
+      "Action": [
+        "amplify:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SSMParameterAccess",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ],
+      "Resource": "arn:aws:ssm:*:$ACCOUNT_ID:parameter/pequenos-grupos/*"
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:$ACCOUNT_ID:log-group:/aws/amplify/*"
+    },
+    {
+      "Sid": "CloudFrontInvalidation",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateInvalidation",
+        "cloudfront:GetDistribution"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+)
+
+aws iam create-policy \
+  --policy-name PequenosGruposAmplifyPolicy \
+  --policy-document "$POLICY_JSON" \
+  --description "Policy for Pequenos Grupos Amplify deployment" \
+  2>/dev/null && echo "✅ IAM Policy criada!" || echo "⚠️  Policy já existe"
+
+echo ""
+echo "======================================"
+echo "  Criando IAM Role para Amplify"
+echo "======================================"
+echo ""
+
+# Criar IAM Role para Amplify
+TRUST_POLICY=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "amplify.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+)
+
+aws iam create-role \
+  --role-name AmplifyExecutionRole-PequenosGrupos \
+  --assume-role-policy-document "$TRUST_POLICY" \
+  --description "Execution role for Pequenos Grupos Amplify app" \
+  2>/dev/null && echo "✅ IAM Role criada!" || echo "⚠️  Role já existe"
+
+# Anexar policies
+aws iam attach-role-policy \
+  --role-name AmplifyExecutionRole-PequenosGrupos \
+  --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/PequenosGruposAmplifyPolicy \
+  2>/dev/null || echo "⚠️  Policy já anexada"
+
+aws iam attach-role-policy \
+  --role-name AmplifyExecutionRole-PequenosGrupos \
+  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess-Amplify \
+  2>/dev/null || echo "⚠️  AWS managed policy já anexada"
+
+echo ""
+echo "======================================"
+echo "  ✅ Setup AWS Completo!"
+echo "======================================"
+echo ""
+echo "Próximos passos:"
+echo ""
+echo "1. Criar app no AWS Amplify Console:"
+echo "   https://console.aws.amazon.com/amplify"
+echo ""
+echo "2. Conectar ao GitHub:"
+echo "   - Autorizar AWS Amplify a acessar seu repositório"
+echo "   - Selecionar branch: main"
+echo ""
+echo "3. Configurar Service Role:"
+echo "   - Selecionar: AmplifyExecutionRole-PequenosGrupos"
+echo ""
+echo "4. Configurar Environment Variables no Amplify:"
+echo "   NEXT_PUBLIC_SUPABASE_URL = _ssm:/pequenos-grupos/prod/NEXT_PUBLIC_SUPABASE_URL"
+echo "   NEXT_PUBLIC_SUPABASE_ANON_KEY = _ssm:/pequenos-grupos/prod/NEXT_PUBLIC_SUPABASE_ANON_KEY"
+echo "   SUPABASE_SERVICE_ROLE_KEY = _ssm:/pequenos-grupos/prod/SUPABASE_SERVICE_ROLE_KEY"
+echo "   CRON_SECRET = _ssm:/pequenos-grupos/prod/CRON_SECRET"
+echo "   NODE_ENV = production"
+echo ""
+echo "5. Deploy!"
+echo ""
+echo "📋 Credenciais salvas em:"
+echo "   - SSM Parameter Store (região: $AWS_REGION)"
+echo "   - Path: /pequenos-grupos/prod/*"
+echo ""
+echo "🔑 Cron Secret gerado:"
+echo "   $CRON_SECRET"
+echo "   (⚠️  Guarde em local seguro!)"
+echo ""

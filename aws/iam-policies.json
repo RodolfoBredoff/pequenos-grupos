@@ -1,0 +1,244 @@
+{
+  "policies": {
+    "AmplifyDeploymentPolicy": {
+      "description": "Política mínima para deploy no Amplify via CI/CD",
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "AmplifyBuildAndDeploy",
+          "Effect": "Allow",
+          "Action": [
+            "amplify:GetApp",
+            "amplify:GetBranch",
+            "amplify:StartJob",
+            "amplify:GetJob",
+            "amplify:ListJobs",
+            "amplify:StopJob"
+          ],
+          "Resource": [
+            "arn:aws:amplify:*:*:apps/*/branches/main",
+            "arn:aws:amplify:*:*:apps/*/branches/develop"
+          ]
+        },
+        {
+          "Sid": "SSMReadParameters",
+          "Effect": "Allow",
+          "Action": [
+            "ssm:GetParameter",
+            "ssm:GetParameters",
+            "ssm:GetParametersByPath"
+          ],
+          "Resource": "arn:aws:ssm:*:*:parameter/pequenos-grupos/*"
+        },
+        {
+          "Sid": "KMSDecryptSecureStrings",
+          "Effect": "Allow",
+          "Action": [
+            "kms:Decrypt"
+          ],
+          "Resource": "arn:aws:kms:*:*:alias/aws/ssm"
+        }
+      ]
+    },
+    
+    "AmplifyExecutionPolicy": {
+      "description": "Política para execução do Amplify (build, logs, SSM)",
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "CloudWatchLogsAccess",
+          "Effect": "Allow",
+          "Action": [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents",
+            "logs:DescribeLogStreams"
+          ],
+          "Resource": "arn:aws:logs:*:*:log-group:/aws/amplify/*:*"
+        },
+        {
+          "Sid": "SSMParameterAccess",
+          "Effect": "Allow",
+          "Action": [
+            "ssm:GetParameter",
+            "ssm:GetParameters",
+            "ssm:GetParametersByPath"
+          ],
+          "Resource": "arn:aws:ssm:*:*:parameter/pequenos-grupos/*"
+        },
+        {
+          "Sid": "KMSDecryptAccess",
+          "Effect": "Allow",
+          "Action": [
+            "kms:Decrypt"
+          ],
+          "Resource": "arn:aws:kms:*:*:alias/aws/ssm",
+          "Condition": {
+            "StringEquals": {
+              "kms:ViaService": "ssm.*.amazonaws.com"
+            }
+          }
+        },
+        {
+          "Sid": "CloudFrontInvalidation",
+          "Effect": "Allow",
+          "Action": [
+            "cloudfront:CreateInvalidation"
+          ],
+          "Resource": "*"
+        }
+      ]
+    },
+    
+    "DeveloperReadOnlyPolicy": {
+      "description": "Política read-only para desenvolvedores visualizarem recursos",
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "ReadOnlyAccess",
+          "Effect": "Allow",
+          "Action": [
+            "amplify:GetApp",
+            "amplify:GetBranch",
+            "amplify:ListApps",
+            "amplify:ListBranches",
+            "amplify:ListJobs",
+            "amplify:GetJob",
+            "ssm:GetParameter",
+            "ssm:DescribeParameters",
+            "logs:DescribeLogGroups",
+            "logs:DescribeLogStreams",
+            "logs:GetLogEvents",
+            "cloudwatch:GetMetricData",
+            "cloudwatch:ListMetrics"
+          ],
+          "Resource": "*"
+        },
+        {
+          "Sid": "DenyDangerousActions",
+          "Effect": "Deny",
+          "Action": [
+            "amplify:DeleteApp",
+            "amplify:DeleteBranch",
+            "ssm:DeleteParameter",
+            "ssm:PutParameter",
+            "iam:*",
+            "kms:*"
+          ],
+          "Resource": "*"
+        }
+      ]
+    }
+  },
+  
+  "trustPolicies": {
+    "AmplifyTrustPolicy": {
+      "description": "Trust policy para Amplify assumir role",
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "amplify.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole",
+          "Condition": {
+            "StringEquals": {
+              "sts:ExternalId": "amplify"
+            }
+          }
+        }
+      ]
+    },
+    
+    "GitHubActionsTrustPolicy": {
+      "description": "Trust policy para GitHub Actions via OIDC (recomendado)",
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+            },
+            "StringLike": {
+              "token.actions.githubusercontent.com:sub": "repo:SEU-USUARIO/pequenos-grupos:*"
+            }
+          }
+        }
+      ]
+    }
+  },
+  
+  "budgets": {
+    "MonthlyBudget": {
+      "BudgetName": "PequenosGrupos-Monthly",
+      "BudgetLimit": {
+        "Amount": "10",
+        "Unit": "USD"
+      },
+      "TimeUnit": "MONTHLY",
+      "BudgetType": "COST",
+      "CostFilters": {
+        "TagKeyValue": [
+          "user:Project$pequenos-grupos"
+        ]
+      },
+      "NotificationsWithSubscribers": [
+        {
+          "Notification": {
+            "NotificationType": "ACTUAL",
+            "ComparisonOperator": "GREATER_THAN",
+            "Threshold": 80,
+            "ThresholdType": "PERCENTAGE"
+          },
+          "Subscribers": [
+            {
+              "SubscriptionType": "EMAIL",
+              "Address": "seu@email.com"
+            }
+          ]
+        },
+        {
+          "Notification": {
+            "NotificationType": "FORECASTED",
+            "ComparisonOperator": "GREATER_THAN",
+            "Threshold": 100,
+            "ThresholdType": "PERCENTAGE"
+          },
+          "Subscribers": [
+            {
+              "SubscriptionType": "EMAIL",
+              "Address": "seu@email.com"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  
+  "tags": {
+    "required": [
+      {
+        "Key": "Project",
+        "Value": "pequenos-grupos"
+      },
+      {
+        "Key": "Environment",
+        "Value": "production"
+      },
+      {
+        "Key": "ManagedBy",
+        "Value": "terraform"
+      },
+      {
+        "Key": "CostCenter",
+        "Value": "ti"
+      }
+    ]
+  }
+}
