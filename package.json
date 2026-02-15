@@ -29,10 +29,10 @@
     "react-dom": "^19.0.0",
     "recharts": "^2.13.3",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "autoprefixer": "^10.4.20"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.20",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",

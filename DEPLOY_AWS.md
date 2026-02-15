@@ -643,6 +643,9 @@ Value: arn:aws:iam::123456789012:role/GitHubActionsRole-PequenosGrupos
 
 ## 🚀 PASSO 5: Criar App no AWS Amplify
 
+**Fluxo em ordem (Console em PT-BR):**  
+Conectar repositório (5.2) → **Criar nova aplicação** → Build settings / Editar YML (5.3) → **Avançar** → Perfil de serviço (5.4) → **Avançar** → Configurações avançadas → Variáveis de ambiente (5.5) → **Salvar e implantar** (5.6).
+
 ### 5.1 Acessar Amplify Console
 
 **AWS Console → Amplify → Get started**
@@ -656,15 +659,14 @@ Value: arn:aws:iam::123456789012:role/GitHubActionsRole-PequenosGrupos
 3. **Selecionar branch:** `main`
 4. **Next**
 
-### 5.3 Configurar Build Settings
+### 5.3 Configurar Build Settings (Configurações de compilação)
 
-**App name:** `pequenos-grupos`
+Na tela **"Criar nova aplicação"** você verá:
 
-**Build and test settings:**
-
-Amplify detectará automaticamente Next.js e usará `amplify.yml`.
-
-Verifique se o conteúdo está correto:
+1. **Nome do app:** use `pequenos-grupos` (se o campo existir).
+2. **Frameworks detectados automaticamente:** deve aparecer o tag **Next.js**.  
+   - Se aparecer **Comando de desenvolvimento front-end** e **Desenvolver diretório de saída**, o diretório de saída deve ser **`.next`**. O comando pode vir preenchido automaticamente.
+3. **Editar arquivo YML:** clique em **"Editar arquivo YML"** e confira (ou cole) o conteúdo abaixo. O arquivo `amplify.yml` do repositório já tem isso; se a detecção automática não carregou, use este bloco mínimo:
 
 ```yaml
 version: 1
@@ -686,23 +688,25 @@ frontend:
       - .next/cache/**/*
 ```
 
-**✅ Deixe como está** (o arquivo `amplify.yml` do projeto já tem tudo configurado)
+Salve o YML e volte. **Não marque** "Proteger meu site com senha".
 
-**Next**
+4. Clique em **"Avançar"** / **Next**.
 
-### 5.4 Configurar Service Role
+### 5.4 Configurar Perfil de Serviço (Service Role)
 
-**Service role → Create new role** (se primeira vez)
+Na mesma sequência da criação do app:
 
-**Ou selecione:** `AmplifyServiceRole-PequenosGrupos`
+1. **Perfil de serviço (Service profile)**  
+   - Texto: *"O Amplify requer permissões para publicar logs de renderização no lado do servidor (SSR) na sua conta do CloudWatch."*
+2. Selecione: **"Criar e usar um novo perfil de serviço"** (Create and use a new service profile).  
+   - Se você já tiver um role do Passo 2 (ex.: `AmplifyServiceRole-PequenosGrupos`), pode escolher **"Usar um perfil de serviço existente"** e selecioná-lo.
+3. Clique em **"Avançar"** / **Next**.
 
-**⚠️ IMPORTANTE:** Use o role criado no Passo 2!
+### 5.5 Configurar Variáveis de Ambiente
 
-### 5.5 Configurar Environment Variables
-
-**Advanced settings → Environment variables**
-
-**Clique em "Add variable"** para cada:
+1. Expanda a seção **"Configurações avançadas"** (Advanced settings).
+2. Procure **"Variáveis de ambiente"** / **Environment variables**.
+3. Clique em **"Adicionar variável"** / **Add variable** e adicione **uma linha para cada**:
 
 | Key | Value |
 |-----|-------|
@@ -712,13 +716,14 @@ frontend:
 | `CRON_SECRET` | `_ssm:/pequenos-grupos/prod/CRON_SECRET` |
 | `NODE_ENV` | `production` |
 
-**⚠️ CRÍTICO:** O prefixo `_ssm:` faz o Amplify buscar do Parameter Store usando o IAM Role!
+**⚠️ CRÍTICO:** O valor com prefixo **`_ssm:`** faz o Amplify buscar no Parameter Store (SSM). O IAM Role do Amplify precisa ter permissão de leitura no SSM (Passo 2).
 
-### 5.6 Review e Create
+### 5.6 Revisar e Criar
 
-**Review all settings → Save and deploy**
+1. Revise as configurações (build, perfil de serviço, variáveis).
+2. Clique em **"Salvar e implantar"** / **Save and deploy** (ou **Criar** / **Create**).
 
-Amplify iniciará o primeiro build automaticamente.
+Amplify criará o app e iniciará o primeiro build automaticamente.
 
 **⏱️ Tempo esperado:** 5-10 minutos
 

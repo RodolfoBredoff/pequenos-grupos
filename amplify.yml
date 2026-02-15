@@ -10,6 +10,7 @@ frontend:
         - echo "📦 Installing dependencies..."
         - node --version
         - npm --version
+        - unset NODE_ENV || true
         - npm ci
         
     build:
