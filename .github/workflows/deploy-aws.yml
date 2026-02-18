@@ -43,6 +43,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set image name (lowercase for GHCR)
+        run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build Docker image
         run: |
           docker build -t ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
@@ -71,6 +74,7 @@ jobs:
               --document-name "AWS-RunShellScript" \
               --parameters "commands=[
                 'cd $dir || exit 1',
+                'export DOCKER_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest',
                 'echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ${{ env.ECR_REGISTRY }} -u ${{ github.actor }} --password-stdin',
                 'docker-compose pull',
                 'docker-compose up -d',

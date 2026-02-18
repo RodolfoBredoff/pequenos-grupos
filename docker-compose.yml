@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ${DOCKER_IMAGE:-pequenos-grupos-app:local}
     container_name: pequenos-grupos-app
     restart: unless-stopped
     ports:

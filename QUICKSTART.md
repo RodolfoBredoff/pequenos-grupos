@@ -201,7 +201,7 @@ scp scripts/setup-ec2.sh ec2-user@SEU_EC2_DNS:/home/ec2-user/
 
 # Conectar via SSM e executar
 chmod +x setup-ec2.sh
-./setup-ec2.sh
+bash setup-ec2.sh
 ```
 
 ### Passo 4: Criar e Montar Volume EBS
@@ -316,10 +316,14 @@ Valor: production
 
 Edite `.github/workflows/deploy-aws.yml` e verifique:
 - `AWS_REGION`: sua região (ex: `us-east-1`)
-- `EC2_INSTANCE_ID`: ID da sua instância EC2
-- `GHCR_REPOSITORY`: seu repositório GitHub
 
-2. **Commit e push:**
+2. **Configurar secrets no GitHub** (Settings → Secrets and variables → Actions):
+- `AWS_ROLE_ARN`: ARN da IAM Role do GitHub Actions OIDC
+- `EC2_INSTANCE_ID`: ID da sua instância EC2 (ex: `i-0123456789abcdef0`)
+
+**Nota:** O nome da imagem no GHCR é obtido automaticamente do repositório (em minúsculas)
+
+3. **Commit e push:**
 
 ```bash
 git add .
@@ -327,12 +331,12 @@ git commit -m "feat: initial AWS deployment setup"
 git push origin main
 ```
 
-3. **Monitorar deploy:**
+4. **Monitorar deploy:**
 
 - GitHub → **Actions** → Veja o workflow rodando
 - Aguarde conclusão (5-10 minutos)
 
-4. **Verificar aplicação:**
+5. **Verificar aplicação:**
 
 - Acesse: `https://SEU_DISTRIBUTION_ID.cloudfront.net`
 - Ou: `http://SEU_EC2_DNS:3000` (se CloudFront não estiver pronto)
@@ -342,11 +346,12 @@ git push origin main
 **Conectar via SSM Session Manager:**
 
 ```bash
-# Executar migrações
+# Executar migrações (na ordem)
 docker exec -i pequenos-grupos-postgres psql -U postgres -d pequenos_grupos < db/migrations/001_initial_schema.sql
+docker exec -i pequenos-grupos-postgres psql -U postgres -d pequenos_grupos < db/migrations/002_admin_and_meeting_time.sql
 
-# Criar dados iniciais (opcional)
-# Use o script setup-database.sh adaptado para EC2
+# Criar dados iniciais e usuário admin (opcional)
+# Use o script setup-database.sh ou create-admin.sh adaptado para EC2
 ```
 
 ---
