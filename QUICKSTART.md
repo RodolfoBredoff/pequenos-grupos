@@ -298,10 +298,8 @@ Valor: production
       }
     }
     ```
-11. **Permissions:** Adicionar políticas:
-    - `AmazonEC2ContainerRegistryFullAccess` (ou apenas read)
-    - `AmazonSSMFullAccess` (ou apenas Parameter Store read)
-    - `AmazonEC2FullAccess` (ou apenas para SSM SendCommand)
+11. **Permissions:** Adicionar políticas (obrigatório para o deploy):
+    - `AmazonSSMFullAccess` **ou** anexar a política em `.github/iam-policy-github-actions.json` (permite `ssm:SendCommand`, `ssm:GetCommandInvocation`)
 12. **Role name:** `pequenos-grupos-github-actions-role`
 13. **Anote o ARN:** `arn:aws:iam::ACCOUNT_ID:role/pequenos-grupos-github-actions-role`
 
@@ -320,6 +318,7 @@ Edite `.github/workflows/deploy-aws.yml` e verifique:
 2. **Configurar secrets no GitHub** (Settings → Secrets and variables → Actions):
 - `AWS_ROLE_ARN`: ARN da IAM Role do GitHub Actions OIDC
 - `EC2_INSTANCE_ID`: ID da sua instância EC2 (ex: `i-0123456789abcdef0`)
+- `APP_DIR` (opcional): Diretório do app na EC2 (padrão: `/opt/pequenos-grupos`)
 
 **Nota:** O nome da imagem no GHCR é obtido automaticamente do repositório (em minúsculas)
 
@@ -428,7 +427,7 @@ sudo usermod -aG docker ec2-user
 - Verificar `AWS_ROLE_ARN` secret configurado
 - Verificar OIDC provider configurado no IAM
 - Verificar condições do IAM Role (repo correto)
-- Verificar permissões do role (SSM, ECR)
+- **AccessDeniedException ssm:SendCommand:** A IAM Role do GitHub Actions precisa de `ssm:SendCommand`. Anexe a política `AmazonSSMFullAccess` ou use `.github/iam-policy-github-actions.json`
 
 **Aplicação não acessa SSM Parameter Store**
 - Verificar IAM Role da EC2 tem permissão `ssm:GetParameter`

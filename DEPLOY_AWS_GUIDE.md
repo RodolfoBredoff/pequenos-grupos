@@ -448,9 +448,8 @@ Configure autenticação sem Access Keys usando OIDC.
 
 7. **Permissions:**
    - Adicione políticas:
-     - `AmazonEC2ContainerRegistryPowerUser` (para push de imagens)
-     - `AmazonSSMFullAccess` (para Session Manager)
-     - `AmazonEC2ReadOnlyAccess` (para verificar instância)
+     - `AmazonSSMFullAccess` (obrigatório para `ssm:SendCommand` no deploy)
+     - Ou crie uma política customizada a partir de `.github/iam-policy-github-actions.json`
 
 8. **Role name:** `pequenos-grupos-github-actions-role`
 9. Clique em **"Create role"**

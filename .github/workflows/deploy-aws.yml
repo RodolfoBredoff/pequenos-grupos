@@ -10,6 +10,7 @@ env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  APP_DIR: ${{ secrets.APP_DIR || '/opt/pequenos-grupos' }}
 
 permissions:
   id-token: write
@@ -19,7 +20,7 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,49 +57,53 @@ jobs:
           docker push ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Install AWS CLI and Session Manager Plugin
+      - name: Install Session Manager Plugin
         run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install --update
-          curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+          curl -sS "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
           sudo dpkg -i session-manager-plugin.deb || sudo apt-get install -f -y
 
-      - name: Deploy to EC2 via SSM Session Manager
+      - name: Deploy to EC2 via SSM
+        id: deploy
         run: |
-          APP_DIR="/opt/pequenos-grupos"
-          # Tentar diferentes diretórios comuns
-          for dir in "/opt/pequenos-grupos" "/home/ec2-user/pequenos-grupos" "/home/ubuntu/pequenos-grupos"; do
-            if aws ssm send-command \
-              --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
-              --document-name "AWS-RunShellScript" \
-              --parameters "commands=[
-                'cd $dir || exit 1',
-                'export DOCKER_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest',
-                'echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ${{ env.ECR_REGISTRY }} -u ${{ github.actor }} --password-stdin',
-                'docker-compose pull',
-                'docker-compose up -d',
-                'docker-compose ps'
-              ]" \
-              --region ${{ env.AWS_REGION }} \
-              --output text --query "Command.CommandId" > /tmp/command-id.txt; then
-              break
-            fi
-          done
-          
-          COMMAND_ID=$(cat /tmp/command-id.txt)
+          set -e
+          echo "Deploying to EC2 instance ${{ secrets.EC2_INSTANCE_ID }} (dir: ${{ env.APP_DIR }})"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+              'set -e',
+              'cd ${{ env.APP_DIR }} || { echo \"Directory ${{ env.APP_DIR }} not found\"; exit 1; }',
+              'export DOCKER_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest',
+              'echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ${{ env.ECR_REGISTRY }} -u ${{ github.actor }} --password-stdin',
+              'docker-compose pull',
+              'docker-compose up -d',
+              'docker-compose ps'
+            ]" \
+            --region ${{ env.AWS_REGION }} \
+            --output text --query "Command.CommandId" 2>&1) || true
+
+          if [ -z "$COMMAND_ID" ] || [ ${#COMMAND_ID} -lt 36 ]; then
+            echo "::error::SSM SendCommand failed. Ensure your GitHub Actions IAM role has ssm:SendCommand permission."
+            echo "::error::See .github/iam-policy-github-actions.json for the required policy."
+            exit 1
+          fi
+
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
           echo "Command ID: $COMMAND_ID"
-          
-          # Aguardar comando completar
-          sleep 5
+
+      - name: Wait for deploy
+        run: |
+          COMMAND_ID="${{ steps.deploy.outputs.command_id }}"
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
             --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --region ${{ env.AWS_REGION }} || true
-          
-          # Verificar output
+            --region ${{ env.AWS_REGION }}
+
+      - name: Show deploy output
+        run: |
           aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
+            --command-id "${{ steps.deploy.outputs.command_id }}" \
             --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
             --region ${{ env.AWS_REGION }}
 
@@ -108,33 +113,24 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=['curl -f http://localhost:3000/api/health || exit 1']" \
+            --parameters 'commands=["curl -sf http://localhost:3000/api/health || exit 1"]' \
             --region ${{ env.AWS_REGION }} \
             --output text --query "Command.CommandId")
-          
-          sleep 5
+
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
             --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
             --region ${{ env.AWS_REGION }}
-          
-          OUTPUT=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --region ${{ env.AWS_REGION }} \
-            --query "StandardOutputContent" --output text)
-          
-          echo "$OUTPUT"
-          
+
           STATUS=$(aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
             --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
             --region ${{ env.AWS_REGION }} \
             --query "Status" --output text)
-          
+
           if [ "$STATUS" != "Success" ]; then
-            echo "Health check failed!"
+            echo "::error::Health check failed (status: $STATUS)"
             exit 1
           fi
-          
+
           echo "Health check passed!"
