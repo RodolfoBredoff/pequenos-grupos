@@ -33,3 +33,15 @@ Se o deploy falhar com `User is not authorized to perform: ssm:SendCommand`:
 2. Add permissions → Attach policies
 3. Selecione `AmazonSSMFullAccess` ou a política customizada
 4. Salve e execute o workflow novamente
+
+## Deploy falha na EC2 (status: Failed)
+
+Quando o comando SSM é executado mas falha na EC2, o workflow exibe o output (stdout/stderr). Causas comuns:
+
+| Erro | Solução |
+|------|---------|
+| `Directory ... not found` | Crie o secret `APP_DIR` com o caminho correto. Ubuntu: `/home/ubuntu/pequenos-grupos`. Amazon Linux: `/opt/pequenos-grupos` |
+| `docker-compose: command not found` | Execute o `setup-ec2.sh` na EC2 para instalar Docker e Docker Compose |
+| `Error response from daemon: pull access denied` | Verifique se o repositório GHCR é público ou se o GITHUB_TOKEN tem permissão `packages: read` |
+| `no such file or directory .env` | Crie o arquivo `.env` na EC2 com DATABASE_URL, DATABASE_PASSWORD, APP_SECRET |
+| `mount point does not exist` | Monte o volume EBS em `/mnt/postgres-data` (ver QUICKSTART Passo 4) |
