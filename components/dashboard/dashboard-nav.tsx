@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { LinkButton } from '@/components/ui/link-button';
-import { Home, Users, ClipboardCheck, Calendar, LogOut, TrendingUp } from 'lucide-react';
+import { Home, Users, ClipboardCheck, Calendar, LogOut, TrendingUp, Settings } from 'lucide-react';
 import { logout } from '@/app/(dashboard)/actions';
 
 type DashboardNavProps = {
@@ -46,6 +46,10 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
             {mounted ? <Calendar className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
             Agenda
           </LinkButton>
+          <LinkButton href="/configuracoes" variant="ghost" className="w-full justify-start">
+            {mounted ? <Settings className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Meu Grupo
+          </LinkButton>
           <LinkButton href="/engajamento" variant="ghost" className="w-full justify-start">
             {mounted ? <TrendingUp className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
             Engajamento
@@ -64,7 +68,7 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
       </aside>
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="grid grid-cols-4 gap-1 p-2">
+        <div className="grid grid-cols-5 gap-1 p-2">
           <Link href="/dashboard" className="flex flex-col items-center py-2">
             {mounted ? <Home className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
             <span className="text-xs mt-1">Início</span>
@@ -80,6 +84,10 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
           <Link href="/agenda" className="flex flex-col items-center py-2">
             {mounted ? <Calendar className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
             <span className="text-xs mt-1">Agenda</span>
+          </Link>
+          <Link href="/configuracoes" className="flex flex-col items-center py-2">
+            {mounted ? <Settings className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
+            <span className="text-xs mt-1">Meu Grupo</span>
           </Link>
         </div>
       </nav>

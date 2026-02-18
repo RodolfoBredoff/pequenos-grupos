@@ -7,6 +7,7 @@ import { Users, Calendar } from 'lucide-react';
 import { getDayOfWeekName } from '@/lib/utils';
 import Link from 'next/link';
 import { AdminGroupActions } from '@/components/admin/admin-group-actions';
+import { AdminAddGroupDialog } from '@/components/admin/admin-add-group-dialog';
 
 interface GroupRow {
   id: string;
@@ -24,7 +25,8 @@ export default async function AdminGroupsPage() {
   const admin = await getAdminSession();
   if (!admin) redirect('/admin/login');
 
-  const groups = await queryMany<GroupRow>(
+  const [groups, organizations] = await Promise.all([
+    queryMany<GroupRow>(
     `SELECT 
       g.id, g.name,
       o.name as organization_name,
@@ -39,7 +41,11 @@ export default async function AdminGroupsPage() {
      GROUP BY g.id, g.name, o.name, g.default_meeting_day, g.default_meeting_time,
               l.full_name, l.email, g.created_at
      ORDER BY g.name ASC`
-  );
+    ),
+    queryMany<{ id: string; name: string }>(
+      `SELECT id, name FROM organizations ORDER BY name ASC`
+    ),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -50,6 +56,7 @@ export default async function AdminGroupsPage() {
             {groups.length} grupo{groups.length !== 1 ? 's' : ''} cadastrado{groups.length !== 1 ? 's' : ''}
           </p>
         </div>
+        <AdminAddGroupDialog organizations={organizations} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

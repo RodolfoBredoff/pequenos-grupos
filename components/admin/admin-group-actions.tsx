@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 
 export function AdminGroupActions({
   groupId,
@@ -37,6 +38,17 @@ export function AdminGroupActions({
 
   return (
     <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+        asChild
+        title="Editar grupo"
+      >
+        <Link href={`/admin/grupos/${groupId}`}>
+          <Pencil className="h-4 w-4" />
+        </Link>
+      </Button>
       <Button
         variant="ghost"
         size="icon"
