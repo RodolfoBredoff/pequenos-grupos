@@ -22,9 +22,12 @@ export async function getPool(): Promise<Pool> {
   // Parse da URL de conexão
   const url = new URL(databaseUrl.replace('postgresql://', 'http://'));
   const host = url.hostname;
-  // Postgres em Docker (postgres, localhost) não suporta SSL
-  const useSsl = process.env.NODE_ENV === 'production'
-    && !['postgres', 'localhost', '127.0.0.1'].includes(host);
+  // SSL: desabilitar se DATABASE_SSL=false, ou se host é Docker/local
+  const sslEnv = process.env.DATABASE_SSL?.toLowerCase();
+  const isDockerHost = ['postgres', 'localhost', '127.0.0.1'].includes(host);
+  const useSsl = sslEnv !== 'false' && sslEnv !== '0'
+    && process.env.NODE_ENV === 'production'
+    && !isDockerHost;
 
   pool = new Pool({
     host,
