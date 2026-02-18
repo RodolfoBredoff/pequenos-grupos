@@ -21,14 +21,18 @@ export async function getPool(): Promise<Pool> {
 
   // Parse da URL de conexão
   const url = new URL(databaseUrl.replace('postgresql://', 'http://'));
-  
+  const host = url.hostname;
+  // Postgres em Docker (postgres, localhost) não suporta SSL
+  const useSsl = process.env.NODE_ENV === 'production'
+    && !['postgres', 'localhost', '127.0.0.1'].includes(host);
+
   pool = new Pool({
-    host: url.hostname,
+    host,
     port: parseInt(url.port || '5432'),
     database: url.pathname.slice(1), // Remove a barra inicial
     user: url.username || await getSSMParameter('/pequenos-grupos/database/user') || process.env.DATABASE_USER || 'postgres',
     password: url.password || await getSSMParameter('/pequenos-grupos/database/password', true) || process.env.DATABASE_PASSWORD,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    ssl: useSsl ? { rejectUnauthorized: false } : false,
     max: 20, // Máximo de conexões no pool
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
