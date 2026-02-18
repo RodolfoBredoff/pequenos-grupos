@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { destroySession } from '@/lib/auth/session';
+import { getAppBaseUrlForBrowser } from '@/lib/utils';
 
 /**
  * GET /api/auth/clear-session?to=/login
@@ -11,5 +12,6 @@ export async function GET(request: NextRequest) {
   const to = request.nextUrl.searchParams.get('to') || '/login';
   const reason = request.nextUrl.searchParams.get('reason');
   const path = reason ? `${to}${to.includes('?') ? '&' : '?'}reason=${encodeURIComponent(reason)}` : to;
-  return NextResponse.redirect(new URL(path, request.url));
+  const baseUrl = getAppBaseUrlForBrowser(request);
+  return NextResponse.redirect(new URL(path, baseUrl + '/'));
 }

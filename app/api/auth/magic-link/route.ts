@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createMagicLinkToken } from '@/lib/auth/magic-link';
-import { queryOne } from '@/lib/db/postgres';
+import { getAppBaseUrlForBrowser } from '@/lib/utils';
 
 /**
  * POST /api/auth/magic-link
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
     // TODO: Enviar email com o link
     // Por enquanto, em desenvolvimento, retornamos o token
     // Em produção, isso deve ser enviado por email
-    const magicLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/verify?token=${token}`;
+    const baseUrl = getAppBaseUrlForBrowser(request);
+    const magicLink = `${baseUrl}/api/auth/verify?token=${token}`;
 
     if (process.env.NODE_ENV === 'development') {
       console.log('🔗 Magic Link (DEV):', magicLink);

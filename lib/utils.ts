@@ -52,6 +52,54 @@ export function getDayOfWeekName(dayNumber: number): string {
   return days[dayNumber] || '';
 }
 
+/**
+ * Retorna a URL base da aplicação para uso em links/redirects no navegador.
+ * Na nuvem: usa a origem da requisição (Host/X-Forwarded-*) para funcionar com IP/domínio público.
+ * Em dev: substitui 0.0.0.0 por localhost.
+ */
+export function getAppBaseUrlForBrowser(request?: Request): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Origem da requisição (Host, ou X-Forwarded-* quando atrás de proxy/load balancer)
+  let requestOrigin: string | undefined;
+  if (request) {
+    const forwardedHost = request.headers.get('x-forwarded-host');
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    if (forwardedHost) {
+      requestOrigin = `${forwardedProto || 'https'}://${forwardedHost}`;
+    } else {
+      try {
+        requestOrigin = new URL(request.url).origin;
+      } catch {
+        requestOrigin = undefined;
+      }
+    }
+  }
+
+  // Prioridade: env válido (sem 0.0.0.0) > origem da requisição > localhost
+  const envIsValid = envUrl && !envUrl.includes('0.0.0.0');
+  let origin = envIsValid ? envUrl : (requestOrigin || envUrl || 'http://localhost:3000');
+
+  // 0.0.0.0 é endereço de bind; em produção usar origem da requisição, em dev usar localhost
+  if (origin.includes('0.0.0.0')) {
+    if (isProduction && requestOrigin && !requestOrigin.includes('0.0.0.0')) {
+      origin = requestOrigin;
+    } else if (!isProduction) {
+      try {
+        const u = new URL(origin);
+        origin = `${u.protocol}//localhost:${u.port || '3000'}`;
+      } catch {
+        origin = 'http://localhost:3000';
+      }
+    } else {
+      origin = requestOrigin || origin;
+    }
+  }
+
+  return origin.replace(/\/$/, '');
+}
+
 export function formatDistanceToNow(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();

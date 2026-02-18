@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { validateMagicLinkToken } from '@/lib/auth/magic-link';
 import { createSessionTokenOnly, SESSION_COOKIE_NAME, SESSION_MAX_AGE, getCookieSecure } from '@/lib/auth/session';
+import { getAppBaseUrlForBrowser } from '@/lib/utils';
 
 /**
  * GET /api/auth/verify?token=...
@@ -29,8 +30,8 @@ export async function GET(request: Request) {
 
     const sessionToken = await createSessionTokenOnly(userData.userId, userData.email);
 
-    const baseUrl = new URL(request.url);
-    const redirectUrl = `${baseUrl.origin}/dashboard`;
+    const baseUrl = getAppBaseUrlForBrowser(request);
+    const redirectUrl = `${baseUrl}/dashboard`;
     const res = NextResponse.redirect(redirectUrl, 302);
     res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
