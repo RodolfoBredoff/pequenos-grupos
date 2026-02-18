@@ -83,7 +83,7 @@ function LoginForm() {
 
           {magicLinkUrl && (
             <div className="mb-4 p-3 rounded-lg bg-muted border text-center">
-              <p className="text-xs text-muted-foreground mb-2">Modo desenvolvimento — use o link abaixo:</p>
+              <p className="text-xs text-muted-foreground mb-2">Use o link abaixo para fazer login (expira em 1 hora):</p>
               <a
                 href={magicLinkUrl}
                 className="text-sm text-primary underline break-all block mb-2"

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { validateMagicLinkToken } from '@/lib/auth/magic-link';
-import { createSessionTokenOnly, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from '@/lib/auth/session';
+import { createSessionTokenOnly, SESSION_COOKIE_NAME, SESSION_MAX_AGE, getCookieSecure } from '@/lib/auth/session';
 
 /**
  * GET /api/auth/verify?token=...
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     const res = NextResponse.redirect(redirectUrl, 302);
     res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: getCookieSecure(),
       sameSite: 'lax',
       maxAge: SESSION_MAX_AGE,
       path: '/',

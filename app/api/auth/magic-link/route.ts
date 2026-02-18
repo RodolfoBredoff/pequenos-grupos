@@ -64,8 +64,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: 'Link de acesso enviado por email',
-      // Remover em produção
-      ...(process.env.NODE_ENV === 'development' && { token, magicLink }),
+      // Retorna o link na resposta até implementar envio por email
+      magicLink,
     });
   } catch (error) {
     // #region agent log

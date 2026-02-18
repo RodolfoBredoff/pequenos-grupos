@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { getSSMParameter } from '@/lib/aws/ssm-client';
 import { queryOne, query } from '@/lib/db/postgres';
+import { getCookieSecure } from '@/lib/auth/session';
 
 export interface AdminUser {
   id: string;
@@ -49,7 +50,7 @@ export async function createAdminSession(userId: string, email: string): Promise
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: getCookieSecure(),
     sameSite: 'lax',
     maxAge: ADMIN_SESSION_MAX_AGE,
     path: '/',

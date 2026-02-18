@@ -13,6 +13,11 @@ export interface SessionUser {
 export const SESSION_COOKIE_NAME = 'pequenos-grupos-session';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
 
+/** secure: true só quando HTTPS (cookies Secure não funcionam em HTTP) */
+export function getCookieSecure(): boolean {
+  return process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://') ?? false;
+}
+
 /**
  * Gera um token JWT para a sessão
  */
@@ -92,7 +97,7 @@ export async function createSession(userId: string, email: string): Promise<stri
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: getCookieSecure(),
     sameSite: 'lax',
     maxAge: SESSION_MAX_AGE,
     path: '/',
