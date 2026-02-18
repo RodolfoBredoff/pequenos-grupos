@@ -1,10 +1,11 @@
 # Produção: usa apenas imagem pré-construída (GHCR), sem build local.
 # Usado pelo deploy via GitHub Actions.
+# DOCKER_IMAGE: defina no .env da EC2 (ex: ghcr.io/owner/pequenos-grupos:latest)
 version: '3.8'
 
 services:
   app:
-    image: ${DOCKER_IMAGE}
+    image: ${DOCKER_IMAGE:-ghcr.io/rodolfobredoff/pequenos-grupos:latest}
     container_name: pequenos-grupos-app
     restart: unless-stopped
     mem_limit: 384m
