@@ -1,24 +1,16 @@
 {
   "name": "Pequenos Grupos Manager",
   "short_name": "PG Manager",
-  "description": "Sistema de gestão para Pequenos Grupos de Estudo",
+  "description": "Sistema de gestão para Pequenos Grupos de Estudo - instale no celular",
   "start_url": "/dashboard",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "orientation": "portrait",
+  "categories": ["productivity", "utilities"],
   "icons": [
-    {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    {"src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
   ]
 }

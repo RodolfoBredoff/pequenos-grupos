@@ -4,6 +4,7 @@ import { queryMany } from '@/lib/db/postgres';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2 } from 'lucide-react';
 import { AdminAddOrgDialog } from '@/components/admin/admin-add-org-dialog';
+import { AdminEditOrgDialog } from '@/components/admin/admin-edit-org-dialog';
 
 interface OrgRow {
   id: string;
@@ -63,6 +64,7 @@ export default async function AdminOrganizationsPage() {
                       {org.leader_count} líder{org.leader_count !== 1 ? 'es' : ''}
                     </p>
                   </div>
+                  <AdminEditOrgDialog org={org} />
                 </div>
               ))}
             </div>
