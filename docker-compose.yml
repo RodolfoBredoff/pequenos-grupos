@@ -8,6 +8,9 @@ services:
     image: ${DOCKER_IMAGE:-pequenos-grupos-app:local}
     container_name: pequenos-grupos-app
     restart: unless-stopped
+    # Limites para evitar CPU 100% e manter SSM agent responsivo (t2.micro/t3.micro)
+    mem_limit: 384m
+    cpus: 0.5
     ports:
       - "3000:3000"
     environment:
@@ -32,6 +35,9 @@ services:
     image: postgres:15-alpine
     container_name: pequenos-grupos-postgres
     restart: unless-stopped
+    # Limites para evitar CPU 100% e manter SSM agent responsivo (t2.micro/t3.micro)
+    mem_limit: 320m
+    cpus: 0.4
     environment:
       - POSTGRES_DB=${DATABASE_NAME:-pequenos_grupos}
       - POSTGRES_USER=${DATABASE_USER:-postgres}

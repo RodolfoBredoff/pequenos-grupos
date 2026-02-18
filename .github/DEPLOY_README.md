@@ -36,8 +36,15 @@ Se o deploy falhar com `User is not authorized to perform: ssm:SendCommand`:
 
 ## Status Pending (comando nunca executa)
 
-Se o status ficar em **Pending** por vários minutos e stdout/stderr vazios, a EC2 não está recebendo comandos SSM. Verifique:
+Se o status ficar em **Pending** por vários minutos e stdout/stderr vazios, a EC2 não está recebendo comandos SSM.
 
+**Causa comum: CPU 100%** – Em t2.micro (1 vCPU, 1GB), Next.js + PostgreSQL podem saturar a CPU; o SSM agent fica irresponsivo. O role IAM está correto, mas a instância não responde.
+
+**Solução imediata:** Reboot da EC2 (AWS Console → EC2 → Instance state → Reboot). Aguardar 2–3 min e rodar o deploy novamente.
+
+**Solução definitiva:** Upgrade para **t3.small** (2 vCPU, 2GB RAM) – EC2 → Actions → Instance settings → Change instance type.
+
+**Outras verificações:**
 1. **IAM Role na EC2** – A instância precisa da role com `AmazonSSMManagedInstanceCore`
 2. **SSM Agent** – Na EC2: `sudo systemctl status amazon-ssm-agent` (deve estar active)
 3. **Fleet Manager** – AWS Console → Systems Manager → Fleet Manager → a instância deve aparecer como **Online**

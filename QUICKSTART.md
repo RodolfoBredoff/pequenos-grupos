@@ -127,7 +127,7 @@ npm run dev
 
 ### Checklist Rápido
 
-- [ ] EC2 criada (t2.micro Free Tier)
+- [ ] EC2 criada (t2.micro Free Tier; **t3.small recomendado** para evitar CPU 100%)
 - [ ] IAM Role configurada para EC2
 - [ ] Docker instalado na EC2
 - [ ] EBS Volume criado e montado
@@ -142,7 +142,7 @@ npm run dev
 1. AWS Console → **EC2** → **Launch Instance**
 2. **Nome:** `pequenos-grupos-app`
 3. **AMI:** Amazon Linux 2023 ou Ubuntu 22.04
-4. **Instance Type:** `t2.micro` (Free Tier)
+4. **Instance Type:** `t2.micro` (Free Tier) ou **`t3.small`** (recomendado – evita CPU 100% com Next.js + Postgres)
 5. **Key Pair:** Criar novo (`pequenos-grupos-key`)
 6. **Security Group:** Criar novo
    - SSH (22) → **My IP**
@@ -404,6 +404,12 @@ echo $NEXT_PUBLIC_APP_URL
 - Verificar IAM Role anexada à EC2
 - Verificar política `AmazonSSMManagedInstanceCore` no role
 - Aguardar 2-3 minutos após criar role
+
+**Deploy falha: "Command stayed Pending" + CPU 100%**
+- **Causa:** t2.micro (1 vCPU, 1GB) é insuficiente para Next.js + PostgreSQL; o SSM agent fica irresponsivo quando a CPU satura.
+- **Solução imediata:** Reboot da EC2 (AWS Console → EC2 → Instance state → Reboot). Aguardar 2–3 min e rodar o deploy novamente.
+- **Solução definitiva:** Upgrade para **t3.small** (2 vCPU, 2GB RAM) – AWS Console → EC2 → Actions → Instance settings → Change instance type.
+- O `docker-compose.yml` já tem limites de CPU/memória para reduzir o risco; em t2.micro a aplicação pode ficar lenta.
 
 **Docker não inicia na EC2**
 ```bash
