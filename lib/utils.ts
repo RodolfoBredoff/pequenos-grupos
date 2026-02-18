@@ -27,7 +27,10 @@ export function formatDate(date: Date | string): string {
 }
 
 export function calculateAge(birthDate: Date | string): number {
-  const birth = typeof birthDate === 'string' ? new Date(birthDate) : birthDate;
+  const birth =
+    typeof birthDate === 'string'
+      ? new Date(birthDate.includes('T') ? birthDate.split('T')[0] : birthDate)
+      : birthDate;
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const monthDiff = today.getMonth() - birth.getMonth();

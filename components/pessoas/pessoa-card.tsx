@@ -23,7 +23,7 @@ interface PessoaCardProps {
 export function PessoaCard({ member }: PessoaCardProps) {
   const age = member.birth_date ? calculateAge(member.birth_date) : null;
   const today = new Date();
-  const birthDate = member.birth_date ? new Date(member.birth_date) : null;
+  const birthDate = member.birth_date ? new Date(member.birth_date.split('T')[0]) : null;
   const isBirthday = birthDate
     ? birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate()
     : false;
@@ -49,6 +49,9 @@ export function PessoaCard({ member }: PessoaCardProps) {
         <div className="space-y-1 text-sm text-muted-foreground mb-4">
           <p>{formatPhone(member.phone)}</p>
           {age !== null && <p>{age} anos</p>}
+          {isBirthday && (
+            <p className="text-yellow-600 font-medium">🎂 Aniversariante do dia!</p>
+          )}
         </div>
       </CardContent>
       

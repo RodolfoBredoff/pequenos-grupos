@@ -137,7 +137,7 @@ export async function getMemberById(memberId: string): Promise<Member | null> {
 export async function createMember(data: {
   full_name: string;
   phone: string;
-  birth_date: string | null;
+  birth_date: string;
   member_type: 'participant' | 'visitor';
 }): Promise<Member> {
   const leader = await getCurrentLeader();
@@ -192,7 +192,7 @@ export async function updateMember(memberId: string, data: {
   }
   if (data.birth_date !== undefined) {
     updates.push(`birth_date = $${paramIndex++}`);
-    values.push(data.birth_date || null);
+    values.push(data.birth_date);
   }
   if (data.member_type !== undefined) {
     updates.push(`member_type = $${paramIndex++}`);

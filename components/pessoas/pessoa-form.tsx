@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,9 +35,16 @@ const MONTHS = [
 ];
 
 function parseBirthDate(val: string | null | undefined): { day: string; month: string; year: string } {
-  if (!val) return { day: '', month: '', year: '' };
-  const [y, m, d] = val.split('-');
-  return { day: d || '', month: m || '', year: y || '' };
+  if (!val || typeof val !== 'string') return { day: '', month: '', year: '' };
+  const dateOnly = val.split('T')[0];
+  const parts = dateOnly.split('-');
+  if (parts.length < 3) return { day: '', month: '', year: '' };
+  const [y, m, d] = parts;
+  return {
+    day: (d || '').replace(/\D/g, ''),
+    month: (m || '').replace(/\D/g, ''),
+    year: (y || '').replace(/\D/g, ''),
+  };
 }
 
 function formatBirthDate(day: string, month: string, year: string): string | null {
@@ -51,26 +58,46 @@ function formatBirthDate(day: string, month: string, year: string): string | nul
 
 export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
   const router = useRouter();
-  const parsed = parseBirthDate(initialData?.birth_date);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    full_name: initialData?.full_name || '',
-    phone: initialData?.phone || '',
-    birth_day: parsed.day,
-    birth_month: parsed.month,
-    birth_year: parsed.year,
-    member_type: initialData?.member_type || MEMBER_TYPES.PARTICIPANT,
+  const [formData, setFormData] = useState(() => {
+    const parsed = parseBirthDate(initialData?.birth_date);
+    return {
+      full_name: initialData?.full_name || '',
+      phone: initialData?.phone || '',
+      birth_day: parsed.day,
+      birth_month: parsed.month,
+      birth_year: parsed.year,
+      member_type: initialData?.member_type || MEMBER_TYPES.PARTICIPANT,
+    };
   });
+
+  useEffect(() => {
+    if (initialData) {
+      const parsed = parseBirthDate(initialData.birth_date);
+      setFormData({
+        full_name: initialData.full_name || '',
+        phone: initialData.phone || '',
+        birth_day: parsed.day,
+        birth_month: parsed.month,
+        birth_year: parsed.year,
+        member_type: initialData.member_type || MEMBER_TYPES.PARTICIPANT,
+      });
+    }
+  }, [initialData?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const birth_date = formatBirthDate(formData.birth_day, formData.birth_month, formData.birth_year);
+    if (!birth_date) {
+      alert('Data de nascimento é obrigatória. Preencha dia, mês e ano.');
+      return;
+    }
     setLoading(true);
 
-    const birth_date = formatBirthDate(formData.birth_day, formData.birth_month, formData.birth_year);
     const payload = {
       full_name: formData.full_name,
       phone: formData.phone,
-      birth_date: birth_date || undefined,
+      birth_date,
       member_type: formData.member_type,
     };
 
@@ -135,9 +162,9 @@ export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label>Data de Nascimento (opcional)</Label>
+        <Label>Data de Nascimento *</Label>
         <p className="text-xs text-muted-foreground">
-          Cadastre dia, mês e ano para receber notificação de aniversário
+          Dia, mês e ano — o líder será notificado no dia do aniversário
         </p>
         <div className="grid grid-cols-3 gap-2">
           <div>
