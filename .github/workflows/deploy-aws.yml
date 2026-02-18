@@ -112,6 +112,7 @@ jobs:
             --parameters "commands=[
               'set -e',
               'cd ${{ env.APP_DIR }} || { echo \"Directory ${{ env.APP_DIR }} not found\"; exit 1; }',
+              'git config --global --add safe.directory ${{ env.APP_DIR }}',
               'git pull origin main || true',
               'export DOCKER_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest',
               'echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ${{ env.ECR_REGISTRY }} -u ${{ github.actor }} --password-stdin',
