@@ -112,12 +112,13 @@ jobs:
             --parameters "commands=[
               'set -e',
               'cd ${{ env.APP_DIR }} || { echo \"Directory ${{ env.APP_DIR }} not found\"; exit 1; }',
+              'git pull origin main || true',
               'export DOCKER_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest',
               'echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ${{ env.ECR_REGISTRY }} -u ${{ github.actor }} --password-stdin',
               'docker pull ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest',
-              'docker-compose pull',
-              'docker-compose up -d',
-              'docker-compose ps'
+              'docker-compose -f docker-compose.prod.yml pull',
+              'docker-compose -f docker-compose.prod.yml up -d',
+              'docker-compose -f docker-compose.prod.yml ps'
             ]" \
             --region ${{ env.AWS_REGION }} \
             --output text --query "Command.CommandId" 2>&1) || true

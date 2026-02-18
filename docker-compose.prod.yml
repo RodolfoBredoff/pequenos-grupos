@@ -1,0 +1,64 @@
+# Produção: usa apenas imagem pré-construída (GHCR), sem build local.
+# Usado pelo deploy via GitHub Actions.
+version: '3.8'
+
+services:
+  app:
+    image: ${DOCKER_IMAGE}
+    container_name: pequenos-grupos-app
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.5
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - APP_SECRET=${APP_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: pequenos-grupos-postgres
+    restart: unless-stopped
+    mem_limit: 320m
+    cpus: 0.4
+    environment:
+      - POSTGRES_DB=${DATABASE_NAME:-pequenos_grupos}
+      - POSTGRES_USER=${DATABASE_USER:-postgres}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/postgres-data
+
+networks:
+  app-network:
+    driver: bridge
