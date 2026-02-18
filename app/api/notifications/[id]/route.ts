@@ -8,12 +8,13 @@ import { markNotificationAsRead } from '@/lib/db/queries';
  */
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
+    const { id } = await params;
 
-    await markNotificationAsRead(params.id);
+    await markNotificationAsRead(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

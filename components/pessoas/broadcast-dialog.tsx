@@ -137,7 +137,7 @@ export function BroadcastDialog({ members }: BroadcastDialogProps) {
               disabled={sending}
             />
             <p className="text-xs text-muted-foreground">
-              Exemplo: "Oi {'{nome}'}, não te vimos no último encontro. Está tudo bem?"
+              Exemplo: &quot;Oi {'{nome}'}, não te vimos no último encontro. Está tudo bem?&quot;
             </p>
           </div>
 

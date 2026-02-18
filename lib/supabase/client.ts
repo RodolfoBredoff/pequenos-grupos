@@ -9,22 +9,24 @@ const emptyArray = { data: [], error: null };
 
 function from(_table: string) {
   const chain = {
-    eq: () => chain,
-    gte: () => Promise.resolve(emptyArray),
-    in: () => Promise.resolve(emptyArray),
+    eq: (_col?: string, _val?: unknown) => chain,
+    gte: (_col?: string, _val?: unknown) => Promise.resolve(emptyArray),
+    in: (_col?: string, _val?: unknown) => Promise.resolve(emptyArray),
     then: (r: (v: typeof emptyArray) => void) => { r(emptyArray); return Promise.resolve(emptyArray); },
   };
   return {
-    select: () => chain,
-    insert: () => Promise.resolve(empty),
-    update: () => ({ eq: () => Promise.resolve(empty) }),
-    upsert: () => Promise.resolve(empty),
+    select: (_cols?: string) => chain,
+    insert: (_data?: unknown) => Promise.resolve(empty),
+    update: (_data?: unknown) => ({ eq: (_col?: string, _val?: unknown) => Promise.resolve(empty) }),
+    upsert: (_data?: unknown, _opts?: { onConflict?: string }) => Promise.resolve(empty),
   };
 }
 
 function channel(_name: string) {
   return {
-    on: () => ({ subscribe: () => null }),
+    on: (_event?: string, _config?: Record<string, unknown>, _callback?: (payload: unknown) => void) => ({
+      subscribe: () => null,
+    }),
   };
 }
 

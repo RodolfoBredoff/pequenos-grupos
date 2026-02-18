@@ -6,15 +6,16 @@ import { notFound } from 'next/navigation';
 export default async function EditarPessoaPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const leader = await getCurrentLeader();
 
   if (!leader?.group_id) {
     return <div>Grupo não encontrado.</div>;
   }
 
-  const member = await getMemberById(params.id);
+  const member = await getMemberById(id);
 
   if (!member) {
     notFound();

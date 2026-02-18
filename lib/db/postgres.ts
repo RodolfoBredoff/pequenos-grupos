@@ -1,4 +1,4 @@
-import { Pool, QueryResult } from 'pg';
+import { Pool, QueryResult, QueryResultRow } from 'pg';
 import { getSSMParameter } from '@/lib/aws/ssm-client';
 
 let pool: Pool | null = null;
@@ -51,9 +51,9 @@ export async function getPool(): Promise<Pool> {
 /**
  * Executa uma query SQL
  */
-export async function query<T = any>(
+export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params?: any[]
+  params?: unknown[]
 ): Promise<QueryResult<T>> {
   const db = await getPool();
   return db.query<T>(text, params);
@@ -62,9 +62,9 @@ export async function query<T = any>(
 /**
  * Executa uma query e retorna apenas o primeiro resultado
  */
-export async function queryOne<T = any>(
+export async function queryOne<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params?: any[]
+  params?: unknown[]
 ): Promise<T | null> {
   const result = await query<T>(text, params);
   return result.rows[0] || null;
@@ -73,9 +73,9 @@ export async function queryOne<T = any>(
 /**
  * Executa uma query e retorna todos os resultados
  */
-export async function queryMany<T = any>(
+export async function queryMany<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params?: any[]
+  params?: unknown[]
 ): Promise<T[]> {
   const result = await query<T>(text, params);
   return result.rows;
@@ -85,7 +85,7 @@ export async function queryMany<T = any>(
  * Inicia uma transação
  */
 export async function transaction<T>(
-  callback: (client: any) => Promise<T>
+  callback: (client: import('pg').PoolClient) => Promise<T>
 ): Promise<T> {
   const db = await getPool();
   const client = await db.connect();

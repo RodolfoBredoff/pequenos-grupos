@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
-import { updateMember, getMemberById } from '@/lib/db/queries';
+import { updateMember } from '@/lib/db/queries';
 
 /**
  * PUT /api/members/[id]
@@ -8,22 +8,23 @@ import { updateMember, getMemberById } from '@/lib/db/queries';
  */
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
+    const { id } = await params;
 
     const data = await request.json();
     const { full_name, phone, birth_date, member_type, is_active } = data;
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (full_name !== undefined) updateData.full_name = full_name;
     if (phone !== undefined) updateData.phone = phone;
     if (birth_date !== undefined) updateData.birth_date = birth_date;
     if (member_type !== undefined) updateData.member_type = member_type;
     if (is_active !== undefined) updateData.is_active = is_active;
 
-    const member = await updateMember(params.id, updateData);
+    const member = await updateMember(id, updateData);
 
     if (!member) {
       return NextResponse.json(
@@ -48,12 +49,13 @@ export async function PUT(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
+    const { id } = await params;
 
-    const success = await updateMember(params.id, { is_active: false });
+    const success = await updateMember(id, { is_active: false });
 
     if (!success) {
       return NextResponse.json(

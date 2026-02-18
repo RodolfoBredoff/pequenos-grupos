@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { db, PendingSync } from '@/lib/offline-db';
+import { db, PendingSync, OfflineMember, OfflineMeeting, OfflineAttendance } from '@/lib/offline-db';
 
 export function useOfflineSync(groupId?: string) {
   const [isOnline, setIsOnline] = useState(true);
@@ -118,10 +118,9 @@ export function useOfflineSync(groupId?: string) {
         .eq('group_id', gId)
         .eq('is_active', true);
 
-      if (members) {
-        await db.members.bulkPut(
-          members.map((m) => ({ ...m, synced: true }))
-        );
+      if (members && Array.isArray(members)) {
+        const items = (members as Record<string, unknown>[]).map((m) => ({ ...m, synced: true } as OfflineMember));
+        await db.members.bulkPut(items);
       }
 
       // Baixar reuniões recentes (último mês)
@@ -134,25 +133,23 @@ export function useOfflineSync(groupId?: string) {
         .eq('group_id', gId)
         .gte('meeting_date', lastMonth.toISOString().split('T')[0]);
 
-      if (meetings) {
-        await db.meetings.bulkPut(
-          meetings.map((m) => ({ ...m, synced: true }))
-        );
+      if (meetings && Array.isArray(meetings)) {
+        const items = (meetings as Record<string, unknown>[]).map((m) => ({ ...m, synced: true } as OfflineMeeting));
+        await db.meetings.bulkPut(items);
       }
 
       // Baixar presenças das reuniões
       if (meetings && meetings.length > 0) {
-        const meetingIds = meetings.map((m) => m.id);
+        const meetingIds = (meetings as { id: string }[]).map((m) => m.id);
         
         const { data: attendance } = await supabase
           .from('attendance')
           .select('*')
           .in('meeting_id', meetingIds);
 
-        if (attendance) {
-          await db.attendance.bulkPut(
-            attendance.map((a) => ({ ...a, synced: true }))
-          );
+        if (attendance && Array.isArray(attendance)) {
+          const items = (attendance as Record<string, unknown>[]).map((a) => ({ ...a, synced: true } as OfflineAttendance));
+          await db.attendance.bulkPut(items);
         }
       }
     } catch (error) {
