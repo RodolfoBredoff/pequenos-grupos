@@ -62,6 +62,22 @@ jobs:
           curl -sS "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
           sudo dpkg -i session-manager-plugin.deb || sudo apt-get install -f -y
 
+      - name: Verify EC2 is registered with SSM
+        run: |
+          INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          REGION="${{ env.AWS_REGION }}"
+          if ! aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+            --region "$REGION" \
+            --query "InstanceInformationList[0].PingStatus" --output text 2>/dev/null | grep -q "Online"; then
+            echo "::error::EC2 instance $INSTANCE_ID is not registered or not Online in SSM."
+            echo "::error::Ensure: 1) IAM role with AmazonSSMManagedInstanceCore is attached to EC2"
+            echo "::error::2) SSM agent is running 3) Instance has network access to SSM endpoints"
+            echo "::error::Check: AWS Console → Systems Manager → Fleet Manager → see if instance appears"
+            exit 1
+          fi
+          echo "EC2 instance is registered and Online in SSM"
+
       - name: Deploy to EC2 via SSM
         id: deploy
         run: |
@@ -128,7 +144,14 @@ jobs:
             --query "StandardErrorContent" --output text || true
 
           if [ "$STATUS" != "Success" ]; then
-            echo "::error::Deploy failed on EC2 (status: $STATUS). Verifique o output acima."
+            if [ "$STATUS" = "Pending" ]; then
+              echo "::error::Command stayed Pending - EC2 may not be receiving SSM commands."
+              echo "::error::Verify: 1) IAM role AmazonSSMManagedInstanceCore on EC2"
+              echo "::error::2) SSM agent running: sudo systemctl status amazon-ssm-agent"
+              echo "::error::3) Instance appears as Online in Systems Manager → Fleet Manager"
+            else
+              echo "::error::Deploy failed on EC2 (status: $STATUS). Verifique o output acima."
+            fi
             exit 1
           fi
 

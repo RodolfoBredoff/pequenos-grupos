@@ -34,6 +34,15 @@ Se o deploy falhar com `User is not authorized to perform: ssm:SendCommand`:
 3. Selecione `AmazonSSMFullAccess` ou a política customizada
 4. Salve e execute o workflow novamente
 
+## Status Pending (comando nunca executa)
+
+Se o status ficar em **Pending** por vários minutos e stdout/stderr vazios, a EC2 não está recebendo comandos SSM. Verifique:
+
+1. **IAM Role na EC2** – A instância precisa da role com `AmazonSSMManagedInstanceCore`
+2. **SSM Agent** – Na EC2: `sudo systemctl status amazon-ssm-agent` (deve estar active)
+3. **Fleet Manager** – AWS Console → Systems Manager → Fleet Manager → a instância deve aparecer como **Online**
+4. **Rede** – A EC2 precisa de acesso aos endpoints SSM (internet ou VPC endpoint)
+
 ## Deploy falha na EC2 (status: Failed)
 
 Quando o comando SSM é executado mas falha na EC2, o workflow exibe o output (stdout/stderr). Causas comuns:
