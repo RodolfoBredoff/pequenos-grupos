@@ -21,26 +21,21 @@ interface PessoaCardProps {
 }
 
 export function PessoaCard({ member }: PessoaCardProps) {
-  // #region agent log
-  try {
-    fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pessoa-card.tsx:render',message:'PessoaCard render',data:{memberId:member?.id,birthDateType:typeof member?.birth_date,birthDateVal:member?.birth_date?String(member.birth_date).slice(0,30):null,phoneType:typeof member?.phone},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  } catch (_) {}
-  // #endregion
   let age: number | null = null;
-  try {
-    age = member.birth_date ? calculateAge(member.birth_date) : null;
-  } catch (e) {
-    fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pessoa-card.tsx:calculateAge',message:'calculateAge threw',data:{error:String(e),birthDate:member?.birth_date},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    throw e;
+  let birthDate: Date | null = null;
+  if (member.birth_date) {
+    try {
+      const bdStr = typeof member.birth_date === 'string' ? member.birth_date.split('T')[0] : String(member.birth_date);
+      birthDate = new Date(bdStr);
+      if (!isNaN(birthDate.getTime())) {
+        age = calculateAge(member.birth_date);
+      }
+    } catch {
+      age = null;
+      birthDate = null;
+    }
   }
   const today = new Date();
-  let birthDate: Date | null = null;
-  try {
-    birthDate = member.birth_date ? new Date(typeof member.birth_date === 'string' ? member.birth_date.split('T')[0] : member.birth_date) : null;
-  } catch (e) {
-    fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pessoa-card.tsx:birthDate',message:'birthDate parse threw',data:{error:String(e)},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-    throw e;
-  }
   const isBirthday = birthDate
     ? birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate()
     : false;
@@ -58,13 +53,13 @@ export function PessoaCard({ member }: PessoaCardProps) {
               variant={member.member_type === 'participant' ? 'default' : 'secondary'}
               className="mb-2"
             >
-              {MEMBER_TYPE_LABELS[member.member_type]}
+              {MEMBER_TYPE_LABELS[member.member_type as keyof typeof MEMBER_TYPE_LABELS] ?? member.member_type ?? 'Membro'}
             </Badge>
           </div>
         </div>
         
         <div className="space-y-1 text-sm text-muted-foreground mb-4">
-          <p>{member.phone ? formatPhone(member.phone) : '-'}</p>
+          <p>{member.phone ? formatPhone(String(member.phone)) : '-'}</p>
           {age !== null && <p>{age} anos</p>}
           {isBirthday && (
             <p className="text-yellow-600 font-medium">🎂 Aniversariante do dia!</p>

@@ -14,7 +14,7 @@ export function formatPhone(phone: string): string {
 }
 
 export function cleanPhone(phone: string): string {
-  return phone.replace(/\D/g, '');
+  return String(phone ?? '').replace(/\D/g, '');
 }
 
 export function formatDate(date: Date | string): string {
@@ -43,7 +43,7 @@ export function calculateAge(birthDate: Date | string): number {
 }
 
 export function getWhatsAppUrl(phone: string, name: string = ''): string {
-  const cleaned = cleanPhone(phone);
+  const cleaned = cleanPhone(phone ?? '');
   const message = name 
     ? encodeURIComponent(`Olá ${name}! Tudo bem?`)
     : encodeURIComponent('Olá! Tudo bem?');

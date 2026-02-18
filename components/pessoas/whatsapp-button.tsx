@@ -11,7 +11,10 @@ interface WhatsAppButtonProps {
 }
 
 export function WhatsAppButton({ phone, name, className }: WhatsAppButtonProps) {
-  const whatsappUrl = getWhatsAppUrl(phone, name);
+  if (!phone || String(phone).replace(/\D/g, '').length < 10) {
+    return null;
+  }
+  const whatsappUrl = getWhatsAppUrl(String(phone), name ?? '');
 
   return (
     <Button
