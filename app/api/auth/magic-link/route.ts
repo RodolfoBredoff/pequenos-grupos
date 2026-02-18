@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     // TODO: Enviar email com o link
     // Por enquanto, em desenvolvimento, retornamos o token
     // Em produção, isso deve ser enviado por email
-    const magicLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/verify?token=${token}`;
+    const magicLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://54.221.101.63:3000'}/api/auth/verify?token=${token}`;
 
     if (process.env.NODE_ENV === 'development') {
       console.log('🔗 Magic Link (DEV):', magicLink);
