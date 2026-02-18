@@ -105,6 +105,8 @@ function EditMeetingDialog({
         const d = await res.json();
         throw new Error(d.error || 'Erro ao salvar');
       }
+      const saved = await res.json();
+      fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'agenda-client.tsx:handleSave',message:'Meeting saved',data:{savedDate:saved?.meeting_date,requestedDate:date,meetingId:meeting.id},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
       onSave();
       onOpenChange(false);
     } catch (e) {
@@ -296,6 +298,14 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
   const [group, setGroup] = useState(initialGroup);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'agenda-client.tsx:initialMeetings',message:'initialMeetings changed',data:{count:initialMeetings?.length,firstDate:initialMeetings?.[0]?.meeting_date,firstId:initialMeetings?.[0]?.id},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    setMeetings(initialMeetings);
+    setGroup(initialGroup);
+  }, [initialMeetings, initialGroup]);
+  // #endregion
 
   const refresh = () => {
     startTransition(() => {
