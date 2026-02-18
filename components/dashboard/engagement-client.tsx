@@ -12,7 +12,7 @@ import { TrendingUp, TrendingDown, Award, CalendarSearch, Loader2, Users, CheckC
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Period = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+type Period = 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'yearly';
 
 interface PeriodDataPoint {
   period: string;
@@ -66,6 +66,7 @@ const PERIOD_OPTIONS: { value: Period; label: string; desc: string }[] = [
   { value: 'weekly', label: 'Semanal', desc: 'Últimas 8 semanas' },
   { value: 'monthly', label: 'Mensal', desc: 'Últimos 6 meses' },
   { value: 'quarterly', label: 'Trimestral', desc: 'Últimos 4 trimestres' },
+  { value: 'semiannual', label: 'Semestral', desc: 'Últimos 4 semestres' },
   { value: 'yearly', label: 'Anual', desc: 'Últimos 3 anos' },
 ];
 
@@ -74,11 +75,16 @@ const PERIOD_OPTIONS: { value: Period; label: string; desc: string }[] = [
 function PeriodSelector({
   selected,
   onChange,
+  titleFilter,
+  onTitleFilterChange,
 }: {
   selected: Period | 'meeting';
   onChange: (v: Period | 'meeting') => void;
+  titleFilter?: string;
+  onTitleFilterChange?: (v: string) => void;
 }) {
   return (
+    <div className="space-y-2">
     <div className="flex flex-wrap gap-2">
       {PERIOD_OPTIONS.map((opt) => (
         <Button
@@ -104,6 +110,18 @@ function PeriodSelector({
         </span>
         <span className="text-xs font-normal opacity-70 hidden sm:block">Detalhe por data</span>
       </Button>
+    </div>
+    {onTitleFilterChange && (
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          placeholder="Filtrar por título do encontro (ex: comunhão)"
+          value={titleFilter ?? ''}
+          onChange={(e) => onTitleFilterChange(e.target.value)}
+          className="flex h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 py-1 text-sm"
+        />
+      </div>
+    )}
     </div>
   );
 }
@@ -561,18 +579,26 @@ function MeetingDetailView({
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export function EngagementClient() {
+interface EngagementClientProps {
+  groupId?: string | null;
+}
+
+export function EngagementClient({ groupId }: EngagementClientProps = {}) {
   const [view, setView] = useState<Period | 'meeting'>('monthly');
+  const [titleFilter, setTitleFilter] = useState('');
   const [periodData, setPeriodData] = useState<PeriodDataPoint[]>([]);
   const [memberStats, setMemberStats] = useState<MemberStat[]>([]);
   const [meetingList, setMeetingList] = useState<MeetingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
 
-  const fetchPeriodData = useCallback(async (period: Period) => {
+  const fetchPeriodData = useCallback(async (period: Period, title?: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/engagement?period=${period}`);
+      let url = `/api/engagement?period=${period}`;
+      if (groupId) url += `&group_id=${groupId}`;
+      if (title?.trim()) url += `&title_filter=${encodeURIComponent(title.trim())}`;
+      const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
       setPeriodData(data.periodData ?? []);
@@ -582,20 +608,21 @@ export function EngagementClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [groupId]);
+
+  const [debouncedTitle, setDebouncedTitle] = useState(titleFilter);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTitle(titleFilter), 400);
+    return () => clearTimeout(t);
+  }, [titleFilter]);
 
   useEffect(() => {
     if (view !== 'meeting') {
-      fetchPeriodData(view as Period);
+      fetchPeriodData(view as Period, debouncedTitle);
     } else {
-      // Ao mudar para "Por Encontro", recarregar a lista se necessário
-      if (meetingList.length === 0) {
-        fetchPeriodData('monthly'); // Pegar a lista de encontros via monthly
-      } else {
-        setLoading(false);
-      }
+      fetchPeriodData('monthly', debouncedTitle);
     }
-  }, [view, fetchPeriodData, meetingList.length]);
+  }, [view, fetchPeriodData, debouncedTitle]);
 
   const periodLabel = PERIOD_OPTIONS.find((o) => o.value === view)?.label ?? '';
 
@@ -621,7 +648,12 @@ export function EngagementClient() {
           <h1 className="text-3xl font-bold">Dashboard de Engajamento</h1>
           <p className="text-muted-foreground mt-1">Análise de presença por período ou encontro</p>
         </div>
-        <PeriodSelector selected={view} onChange={setView} />
+        <PeriodSelector
+          selected={view}
+          onChange={setView}
+          titleFilter={titleFilter}
+          onTitleFilterChange={setTitleFilter}
+        />
       </div>
 
       {loading ? (

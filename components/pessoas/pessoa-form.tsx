@@ -21,18 +21,44 @@ interface PessoaFormProps {
     id: string;
     full_name: string;
     phone: string;
-    birth_date: string;
+    birth_date: string | null;
     member_type: 'participant' | 'visitor';
   };
 }
 
+const MONTHS = [
+  { value: '', label: 'Mês' },
+  { value: '01', label: 'Janeiro' }, { value: '02', label: 'Fevereiro' }, { value: '03', label: 'Março' },
+  { value: '04', label: 'Abril' }, { value: '05', label: 'Maio' }, { value: '06', label: 'Junho' },
+  { value: '07', label: 'Julho' }, { value: '08', label: 'Agosto' }, { value: '09', label: 'Setembro' },
+  { value: '10', label: 'Outubro' }, { value: '11', label: 'Novembro' }, { value: '12', label: 'Dezembro' },
+];
+
+function parseBirthDate(val: string | null | undefined): { day: string; month: string; year: string } {
+  if (!val) return { day: '', month: '', year: '' };
+  const [y, m, d] = val.split('-');
+  return { day: d || '', month: m || '', year: y || '' };
+}
+
+function formatBirthDate(day: string, month: string, year: string): string | null {
+  if (!day || !month || !year) return null;
+  const d = day.padStart(2, '0');
+  const m = month.padStart(2, '0');
+  const y = year.padStart(4, '0');
+  if (d.length !== 2 || m.length !== 2 || y.length !== 4) return null;
+  return `${y}-${m}-${d}`;
+}
+
 export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
   const router = useRouter();
+  const parsed = parseBirthDate(initialData?.birth_date);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: initialData?.full_name || '',
     phone: initialData?.phone || '',
-    birth_date: initialData?.birth_date || '',
+    birth_day: parsed.day,
+    birth_month: parsed.month,
+    birth_year: parsed.year,
     member_type: initialData?.member_type || MEMBER_TYPES.PARTICIPANT,
   });
 
@@ -40,15 +66,20 @@ export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
     e.preventDefault();
     setLoading(true);
 
+    const birth_date = formatBirthDate(formData.birth_day, formData.birth_month, formData.birth_year);
+    const payload = {
+      full_name: formData.full_name,
+      phone: formData.phone,
+      birth_date: birth_date || undefined,
+      member_type: formData.member_type,
+    };
+
     try {
       if (initialData) {
-        // Update existing member
         const response = await fetch(`/api/members/${initialData.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -56,13 +87,10 @@ export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
           throw new Error(data.error || 'Erro ao atualizar pessoa');
         }
       } else {
-        // Create new member
         const response = await fetch('/api/members', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -107,14 +135,45 @@ export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="birth_date">Data de Nascimento *</Label>
-        <Input
-          id="birth_date"
-          value={formData.birth_date}
-          onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-          required
-          type="date"
-        />
+        <Label>Data de Nascimento (opcional)</Label>
+        <p className="text-xs text-muted-foreground">
+          Cadastre dia, mês e ano para receber notificação de aniversário
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <Label htmlFor="birth_day" className="text-xs font-normal text-muted-foreground">Dia</Label>
+            <Input
+              id="birth_day"
+              placeholder="DD"
+              maxLength={2}
+              value={formData.birth_day}
+              onChange={(e) => setFormData({ ...formData, birth_day: e.target.value.replace(/\D/g, '') })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="birth_month" className="text-xs font-normal text-muted-foreground">Mês</Label>
+            <select
+              id="birth_month"
+              value={formData.birth_month}
+              onChange={(e) => setFormData({ ...formData, birth_month: e.target.value })}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {MONTHS.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="birth_year" className="text-xs font-normal text-muted-foreground">Ano</Label>
+            <Input
+              id="birth_year"
+              placeholder="AAAA"
+              maxLength={4}
+              value={formData.birth_year}
+              onChange={(e) => setFormData({ ...formData, birth_year: e.target.value.replace(/\D/g, '') })}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">

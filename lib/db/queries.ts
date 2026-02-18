@@ -20,7 +20,7 @@ export interface Member {
   group_id: string;
   full_name: string;
   phone: string;
-  birth_date: string;
+  birth_date: string | null;
   member_type: 'participant' | 'visitor';
   is_active: boolean;
   created_at: string;
@@ -137,7 +137,7 @@ export async function getMemberById(memberId: string): Promise<Member | null> {
 export async function createMember(data: {
   full_name: string;
   phone: string;
-  birth_date: string;
+  birth_date: string | null;
   member_type: 'participant' | 'visitor';
 }): Promise<Member> {
   const leader = await getCurrentLeader();
@@ -192,7 +192,7 @@ export async function updateMember(memberId: string, data: {
   }
   if (data.birth_date !== undefined) {
     updates.push(`birth_date = $${paramIndex++}`);
-    values.push(data.birth_date);
+    values.push(data.birth_date || null);
   }
   if (data.member_type !== undefined) {
     updates.push(`member_type = $${paramIndex++}`);
@@ -266,6 +266,23 @@ export async function getPastMeetings(limit: number = 10): Promise<Meeting[]> {
     `SELECT * FROM meetings 
      WHERE group_id = $1 
      AND meeting_date < CURRENT_DATE
+     ORDER BY meeting_date DESC
+     LIMIT $2`,
+    [leader.group_id, limit]
+  );
+}
+
+/**
+ * Busca reuniões do grupo para seleção (presença)
+ * Inclui passadas e futuras, ordenadas por data decrescente (mais recente primeiro)
+ */
+export async function getMeetingsForPresence(limit: number = 50): Promise<Meeting[]> {
+  const leader = await getCurrentLeader();
+  if (!leader?.group_id) return [];
+
+  return queryMany<Meeting>(
+    `SELECT * FROM meetings 
+     WHERE group_id = $1 AND is_cancelled = FALSE
      ORDER BY meeting_date DESC
      LIMIT $2`,
     [leader.group_id, limit]

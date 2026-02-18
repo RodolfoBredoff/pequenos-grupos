@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Shield, Users, LayoutDashboard, Group, LogOut, Building2 } from 'lucide-react';
+import { Shield, Users, LayoutDashboard, Group, LogOut, Building2, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: '/admin/grupos', label: 'Grupos', icon: Group, exact: false },
   { href: '/admin/lideres', label: 'Líderes', icon: Users, exact: false },
   { href: '/admin/organizacoes', label: 'Organizações', icon: Building2, exact: false },
+  { href: '/admin/engajamento', label: 'Engajamento', icon: TrendingUp, exact: false },
 ];
 
 export function AdminNav({ adminEmail }: { adminEmail: string }) {

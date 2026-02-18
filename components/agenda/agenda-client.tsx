@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -70,6 +70,16 @@ function EditMeetingDialog({
   const [time, setTime] = useState(meeting.meeting_time ?? defaultTime);
   const [title, setTitle] = useState(meeting.title ?? '');
   const [notes, setNotes] = useState(meeting.notes ?? '');
+
+  // Sincronizar estado quando o meeting mudar (ex.: abrir para outro encontro)
+  useEffect(() => {
+    if (meeting) {
+      setDate(meeting.meeting_date);
+      setTime(meeting.meeting_time ?? defaultTime);
+      setTitle(meeting.title ?? '');
+      setNotes(meeting.notes ?? '');
+    }
+  }, [meeting?.id, meeting?.meeting_date, meeting?.meeting_time, meeting?.title, meeting?.notes, defaultTime]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

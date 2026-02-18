@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { getCurrentLeader } from '@/lib/db/queries';
 import { queryMany, queryOne } from '@/lib/db/postgres';
 
-export type Period = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+export type Period = 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'yearly';
 
 function getPeriodConfig(period: Period): { interval: string; truncate: string; limit: number } {
   switch (period) {
@@ -13,6 +13,8 @@ function getPeriodConfig(period: Period): { interval: string; truncate: string; 
       return { interval: '6 months', truncate: 'month', limit: 6 };
     case 'quarterly':
       return { interval: '12 months', truncate: 'quarter', limit: 4 };
+    case 'semiannual':
+      return { interval: '24 months', truncate: 'month', limit: 4 }; // 4 semestres = agrupar 6 meses
     case 'yearly':
       return { interval: '3 years', truncate: 'year', limit: 3 };
   }
@@ -33,6 +35,11 @@ function formatPeriodLabel(dateStr: string, period: Period): string {
       const year = date.getUTCFullYear().toString().slice(-2);
       return `T${quarter}/${year}`;
     }
+    case 'semiannual': {
+      const sem = date.getUTCMonth() < 6 ? 1 : 2;
+      const year = date.getUTCFullYear().toString().slice(-2);
+      return `S${sem}/${year}`;
+    }
     case 'yearly':
       return String(date.getUTCFullYear());
   }
@@ -42,22 +49,33 @@ function formatPeriodLabel(dateStr: string, period: Period): string {
  * GET /api/engagement
  *
  * Modos:
- *  1. ?period=weekly|monthly|quarterly|yearly  → dados agrupados por período
- *  2. ?meeting_id=uuid                         → presença detalhada de um encontro específico
- *  3. (sem parâmetros)                         → compatibilidade: retorna dados mensais dos últimos 6 meses
+ *  1. ?period=weekly|monthly|quarterly|semiannual|yearly  → dados agrupados por período
+ *  2. ?meeting_id=uuid                                    → presença detalhada de um encontro
+ *  3. ?group_id=uuid (admin)                              → dados de um grupo específico
+ *  4. ?title_filter=texto                                 → filtrar encontros por título (com outros filtros)
  */
 export async function GET(request: Request) {
   try {
     await requireAuth();
     const leader = await getCurrentLeader();
-
-    if (!leader?.group_id) {
-      return NextResponse.json({ error: 'Líder não vinculado a um grupo' }, { status: 400 });
-    }
-
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') as Period | null;
     const meetingId = searchParams.get('meeting_id');
+    const groupIdParam = searchParams.get('group_id');
+    const titleFilter = searchParams.get('title_filter')?.trim() || null;
+
+    let groupId: string | null = leader?.group_id ?? null;
+    if (groupIdParam) {
+      const { getAdminSession } = await import('@/lib/auth/admin-session');
+      const admin = await getAdminSession();
+      if (admin) {
+        groupId = groupIdParam;
+      }
+    }
+
+    if (!groupId) {
+      return NextResponse.json({ error: 'Líder não vinculado a um grupo' }, { status: 400 });
+    }
 
     // ─── Modo: encontro específico ─────────────────────────────────────────
     if (meetingId) {
@@ -71,7 +89,7 @@ export async function GET(request: Request) {
       }>(
         `SELECT id, meeting_date, title, meeting_time, is_cancelled
          FROM meetings WHERE id = $1 AND group_id = $2`,
-        [meetingId, leader.group_id]
+        [meetingId, groupId]
       );
 
       if (!meeting) {
@@ -111,32 +129,46 @@ export async function GET(request: Request) {
     }
 
     // ─── Modo: período ─────────────────────────────────────────────────────
-    const effectivePeriod: Period = period && ['weekly', 'monthly', 'quarterly', 'yearly'].includes(period)
+    const effectivePeriod: Period = period && ['weekly', 'monthly', 'quarterly', 'semiannual', 'yearly'].includes(period)
       ? period
       : 'monthly';
 
     const { interval, truncate } = getPeriodConfig(effectivePeriod);
 
-    // Buscar reuniões no período
+    const periodStartExpr = effectivePeriod === 'semiannual'
+      ? `(CASE WHEN EXTRACT(MONTH FROM meeting_date) < 7 
+           THEN (EXTRACT(YEAR FROM meeting_date)::text || '-01-01') 
+           ELSE (EXTRACT(YEAR FROM meeting_date)::text || '-07-01') 
+         END)::date::text`
+      : `date_trunc($1, meeting_date)::date::text`;
+
+    const titleCond = titleFilter
+      ? (effectivePeriod === 'semiannual' ? ` AND title ILIKE $3` : ` AND title ILIKE $4`)
+      : '';
+    const queryParams: unknown[] = effectivePeriod === 'semiannual'
+      ? [groupId, interval, ...(titleFilter ? [`%${titleFilter}%`] : [])]
+      : [truncate, groupId, interval, ...(titleFilter ? [`%${titleFilter}%`] : [])];
+
+    const meetingsQuery = effectivePeriod === 'semiannual'
+      ? `SELECT id, meeting_date, title, ${periodStartExpr} as period_start
+         FROM meetings 
+         WHERE group_id = $1 AND is_cancelled = FALSE
+           AND meeting_date >= (CURRENT_DATE - $2::interval)
+           AND meeting_date <= CURRENT_DATE${titleCond}
+         ORDER BY meeting_date ASC`
+      : `SELECT id, meeting_date, title, ${periodStartExpr} as period_start
+         FROM meetings 
+         WHERE group_id = $2 AND is_cancelled = FALSE
+           AND meeting_date >= (CURRENT_DATE - $3::interval)
+           AND meeting_date <= CURRENT_DATE${titleCond}
+         ORDER BY meeting_date ASC`;
+
     const meetings = await queryMany<{
       id: string;
       meeting_date: string;
       title: string | null;
       period_start: string;
-    }>(
-      `SELECT 
-         id, 
-         meeting_date,
-         title,
-         date_trunc($1, meeting_date)::date::text as period_start
-       FROM meetings 
-       WHERE group_id = $2 
-         AND is_cancelled = FALSE
-         AND meeting_date >= (CURRENT_DATE - $3::interval)
-         AND meeting_date <= CURRENT_DATE
-       ORDER BY meeting_date ASC`,
-      [truncate, leader.group_id, interval]
-    );
+    }>(meetingsQuery, queryParams as string[]);
 
     if (meetings.length === 0) {
       return NextResponse.json({

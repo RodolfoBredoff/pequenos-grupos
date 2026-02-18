@@ -21,9 +21,9 @@ export async function POST(request: Request) {
     const data = await request.json();
     const { full_name, phone, birth_date, member_type } = data;
 
-    if (!full_name || !phone || !birth_date || !member_type) {
+    if (!full_name || !phone || !member_type) {
       return NextResponse.json(
-        { error: 'Campos obrigatórios: full_name, phone, birth_date, member_type' },
+        { error: 'Campos obrigatórios: full_name, phone, member_type' },
         { status: 400 }
       );
     }
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const member = await createMember({
       full_name,
       phone,
-      birth_date,
+      birth_date: birth_date || null,
       member_type,
     });
 

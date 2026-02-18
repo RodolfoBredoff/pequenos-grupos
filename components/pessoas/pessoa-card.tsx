@@ -12,7 +12,7 @@ interface Member {
   id: string;
   full_name: string;
   phone: string;
-  birth_date: string;
+  birth_date: string | null;
   member_type: 'participant' | 'visitor';
 }
 
@@ -21,12 +21,12 @@ interface PessoaCardProps {
 }
 
 export function PessoaCard({ member }: PessoaCardProps) {
-  const age = calculateAge(member.birth_date);
+  const age = member.birth_date ? calculateAge(member.birth_date) : null;
   const today = new Date();
-  const birthDate = new Date(member.birth_date);
-  const isBirthday = 
-    birthDate.getMonth() === today.getMonth() && 
-    birthDate.getDate() === today.getDate();
+  const birthDate = member.birth_date ? new Date(member.birth_date) : null;
+  const isBirthday = birthDate
+    ? birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate()
+    : false;
   
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -48,7 +48,7 @@ export function PessoaCard({ member }: PessoaCardProps) {
         
         <div className="space-y-1 text-sm text-muted-foreground mb-4">
           <p>{formatPhone(member.phone)}</p>
-          <p>{age} anos</p>
+          {age !== null && <p>{age} anos</p>}
         </div>
       </CardContent>
       
