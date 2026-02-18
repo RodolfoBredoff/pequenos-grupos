@@ -111,6 +111,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
               'set -e',
+              'export HOME=/root',
               'cd ${{ env.APP_DIR }} || { echo \"Directory ${{ env.APP_DIR }} not found\"; exit 1; }',
               'git config --global --add safe.directory ${{ env.APP_DIR }}',
               'git pull origin main || true',
