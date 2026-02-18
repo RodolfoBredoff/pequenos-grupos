@@ -1,8 +1,0 @@
-{"location":"components/dashboard/dashboard-nav.tsx:useEffect","message":"Dashboard nav mount","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771192968461,"hypothesisId":"H5"}
-{"location":"components/dashboard/dashboard-nav.tsx:useEffect","message":"Dashboard nav mount","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771193201076,"hypothesisId":"H5"}
-{"location":"components/dashboard/dashboard-nav.tsx:useEffect","message":"Dashboard nav mount","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771193359581,"hypothesisId":"H5"}
-{"location":"app/(auth)/login/page.tsx:useEffect","message":"Login mount - extension check","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771193368035,"hypothesisId":"H1"}
-{"location":"app/(auth)/login/page.tsx:useEffect","message":"Login mount - extension check","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771193368035,"hypothesisId":"H1"}
-{"location":"app/(auth)/login/page.tsx:useEffect","message":"Login mount - extension check","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771193385663,"hypothesisId":"H1"}
-{"location":"app/(auth)/login/page.tsx:useEffect","message":"Login mount - extension check","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771193429978,"hypothesisId":"H1"}
-{"location":"app/(auth)/login/page.tsx:useEffect","message":"Login mount - extension check","data":{"hasDarkReader":true,"mounted":true},"timestamp":1771193429978,"hypothesisId":"H1"}

@@ -1,30 +1,11 @@
-import { createClient } from '@/lib/supabase/server';
+import { getMembersByLeaderGroup } from '@/lib/db/queries';
 import { PessoaCard } from '@/components/pessoas/pessoa-card';
-import { BroadcastDialog } from '@/components/pessoas/broadcast-dialog';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { BroadcastDialogClient } from '@/components/pessoas/broadcast-dialog-client';
+import { LinkButton } from '@/components/ui/link-button';
 import { UserPlus, Users } from 'lucide-react';
 
 export default async function PessoasPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  const { data: leader } = await supabase
-    .from('leaders')
-    .select('group_id')
-    .eq('id', user!.id)
-    .single();
-
-  if (!leader?.group_id) {
-    return <div>Grupo não encontrado.</div>;
-  }
-
-  const { data: members } = await supabase
-    .from('members')
-    .select('*')
-    .eq('group_id', leader.group_id)
-    .eq('is_active', true)
-    .order('full_name');
+  const members = await getMembersByLeaderGroup();
 
   return (
     <div className="space-y-6">
@@ -37,14 +18,12 @@ export default async function PessoasPage() {
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           {members && members.length > 0 && (
-            <BroadcastDialog members={members} />
+            <BroadcastDialogClient members={members} />
           )}
-          <Link href="/pessoas/novo" className="w-full sm:w-auto">
-            <Button className="w-full">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nova Pessoa
-            </Button>
-          </Link>
+          <LinkButton href="/pessoas/novo">
+            <UserPlus className="mr-2 h-4 w-4" />
+            Nova Pessoa
+          </LinkButton>
         </div>
       </div>
 
@@ -61,12 +40,10 @@ export default async function PessoasPage() {
           <p className="text-muted-foreground mb-4">
             Comece adicionando membros ao seu grupo
           </p>
-          <Link href="/pessoas/novo">
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Cadastrar Primeira Pessoa
-            </Button>
-          </Link>
+          <LinkButton href="/pessoas/novo">
+            <UserPlus className="mr-2 h-4 w-4" />
+            Cadastrar Primeira Pessoa
+          </LinkButton>
         </div>
       )}
     </div>

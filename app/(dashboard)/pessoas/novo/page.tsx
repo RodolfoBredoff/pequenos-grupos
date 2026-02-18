@@ -1,16 +1,9 @@
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentLeader } from '@/lib/db/queries';
 import { PessoaForm } from '@/components/pessoas/pessoa-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function NovaPessoaPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  const { data: leader } = await supabase
-    .from('leaders')
-    .select('group_id')
-    .eq('id', user!.id)
-    .single();
+  const leader = await getCurrentLeader();
 
   if (!leader?.group_id) {
     return <div>Grupo não encontrado.</div>;

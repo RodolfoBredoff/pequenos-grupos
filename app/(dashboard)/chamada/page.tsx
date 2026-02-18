@@ -1,16 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentLeader } from '@/lib/db/queries';
+import { getMembersByLeaderGroup, getMeetingByDate, upsertMeeting, getAttendanceByMeeting } from '@/lib/db/queries';
 import { PresenceChecklist } from '@/components/chamada/presence-checklist';
 import { formatDate } from '@/lib/utils';
 
 export default async function ChamadaPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  const { data: leader } = await supabase
-    .from('leaders')
-    .select('group_id')
-    .eq('id', user!.id)
-    .single();
+  const leader = await getCurrentLeader();
 
   if (!leader?.group_id) {
     return <div>Grupo não encontrado.</div>;
@@ -19,29 +13,18 @@ export default async function ChamadaPage() {
   // Buscar ou criar reunião de hoje
   const today = new Date().toISOString().split('T')[0];
   
-  let { data: meeting } = await supabase
-    .from('meetings')
-    .select('*')
-    .eq('group_id', leader.group_id)
-    .eq('meeting_date', today)
-    .maybeSingle();
+  let meeting = await getMeetingByDate(today);
 
   if (!meeting) {
-    const { data: newMeeting, error } = await supabase
-      .from('meetings')
-      .insert({ 
-        group_id: leader.group_id, 
+    try {
+      meeting = await upsertMeeting({
         meeting_date: today,
-        is_cancelled: false
-      })
-      .select()
-      .single();
-    
-    if (error) {
+        is_cancelled: false,
+      });
+    } catch (error) {
       console.error('Error creating meeting:', error);
       return <div>Erro ao criar reunião de hoje.</div>;
     }
-    meeting = newMeeting;
   }
 
   // Verificar se a reunião foi cancelada
@@ -59,19 +42,11 @@ export default async function ChamadaPage() {
     );
   }
 
-  // Buscar membros ativos
-  const { data: members } = await supabase
-    .from('members')
-    .select('*')
-    .eq('group_id', leader.group_id)
-    .eq('is_active', true)
-    .order('full_name');
-
-  // Buscar presenças já registradas
-  const { data: attendance } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('meeting_id', meeting.id);
+  // Buscar membros ativos e presenças em paralelo
+  const [members, attendance] = await Promise.all([
+    getMembersByLeaderGroup(),
+    getAttendanceByMeeting(meeting.id),
+  ]);
 
   return (
     <div className="space-y-6">

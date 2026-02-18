@@ -3,36 +3,20 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/ui/link-button';
 import { Home, Users, ClipboardCheck, Calendar, LogOut, TrendingUp } from 'lucide-react';
-
-const DEBUG_LOG_ENDPOINT = 'http://127.0.0.1:7242/ingest/a57e1808-337a-4c6d-85b0-c37698065cde';
+import { logout } from '@/app/(dashboard)/actions';
 
 type DashboardNavProps = {
   groupName: string;
   leaderDisplayName: string;
-  logoutAction: () => void;
 };
 
-export function DashboardNav({ groupName, leaderDisplayName, logoutAction }: DashboardNavProps) {
+export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const hasDarkReader =
-      typeof document !== 'undefined' &&
-      (document.documentElement.hasAttribute('data-darkreader-mode') ||
-        !!document.querySelector('[data-darkreader-inline-stroke]'));
-    fetch(DEBUG_LOG_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'components/dashboard/dashboard-nav.tsx:useEffect',
-        message: 'Dashboard nav mount',
-        data: { hasDarkReader, mounted: true },
-        timestamp: Date.now(),
-        hypothesisId: 'H5',
-      }),
-    }).catch(() => {});
   }, []);
 
   const iconPlaceholder = (className: string) => <span className={className} aria-hidden />;
@@ -46,41 +30,31 @@ export function DashboardNav({ groupName, leaderDisplayName, logoutAction }: Das
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <Link href="/dashboard">
-            <Button variant="ghost" className="w-full justify-start">
-              {mounted ? <Home className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
-              Dashboard
-            </Button>
-          </Link>
-          <Link href="/pessoas">
-            <Button variant="ghost" className="w-full justify-start">
-              {mounted ? <Users className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
-              Pessoas
-            </Button>
-          </Link>
-          <Link href="/chamada">
-            <Button variant="ghost" className="w-full justify-start">
-              {mounted ? <ClipboardCheck className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
-              Chamada
-            </Button>
-          </Link>
-          <Link href="/agenda">
-            <Button variant="ghost" className="w-full justify-start">
-              {mounted ? <Calendar className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
-              Agenda
-            </Button>
-          </Link>
-          <Link href="/engajamento">
-            <Button variant="ghost" className="w-full justify-start">
-              {mounted ? <TrendingUp className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
-              Engajamento
-            </Button>
-          </Link>
+          <LinkButton href="/dashboard" variant="ghost" className="w-full justify-start">
+            {mounted ? <Home className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Dashboard
+          </LinkButton>
+          <LinkButton href="/pessoas" variant="ghost" className="w-full justify-start">
+            {mounted ? <Users className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Pessoas
+          </LinkButton>
+          <LinkButton href="/chamada" variant="ghost" className="w-full justify-start">
+            {mounted ? <ClipboardCheck className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Chamada
+          </LinkButton>
+          <LinkButton href="/agenda" variant="ghost" className="w-full justify-start">
+            {mounted ? <Calendar className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Agenda
+          </LinkButton>
+          <LinkButton href="/engajamento" variant="ghost" className="w-full justify-start">
+            {mounted ? <TrendingUp className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Engajamento
+          </LinkButton>
         </nav>
 
         <div className="p-4 border-t">
           <p className="text-sm text-muted-foreground mb-2">{leaderDisplayName}</p>
-          <form action={logoutAction}>
+          <form action={logout}>
             <Button variant="outline" className="w-full" type="submit">
               {mounted ? <LogOut className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
               Sair

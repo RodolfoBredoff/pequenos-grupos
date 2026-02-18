@@ -1,163 +1,82 @@
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { formatDate, getDayOfWeekName } from '@/lib/utils';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { getCurrentLeader } from '@/lib/db/queries';
+import { queryOne, queryMany } from '@/lib/db/postgres';
+import { AgendaClient } from '@/components/agenda/agenda-client';
 
 export default async function AgendaPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  const { data: leader } = await supabase
-    .from('leaders')
-    .select('group_id')
-    .eq('id', user!.id)
-    .single();
+  const leader = await getCurrentLeader();
 
   if (!leader?.group_id) {
     return <div>Grupo não encontrado.</div>;
   }
 
-  const { data: group } = await supabase
-    .from('groups')
-    .select('default_meeting_day, default_meeting_time')
-    .eq('id', leader.group_id)
-    .single();
+  // Buscar configuração do grupo e reuniões em paralelo
+  const [group, meetings, pastMeetings] = await Promise.all([
 
-  // Buscar próximas reuniões (próximos 30 dias)
-  const today = new Date().toISOString().split('T')[0];
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + 30);
-  const future = futureDate.toISOString().split('T')[0];
+    queryOne<{ default_meeting_day: number; default_meeting_time: string }>(
+      `SELECT default_meeting_day, default_meeting_time FROM groups WHERE id = $1`,
+      [leader.group_id]
+    ),
+    // Próximas reuniões com todos os campos
+    queryMany<{
+      id: string;
+      group_id: string;
+      meeting_date: string;
+      meeting_time: string | null;
+      is_cancelled: boolean;
+      title: string | null;
+      notes: string | null;
+      created_at: string;
+    }>(
+      `SELECT id, group_id, meeting_date, meeting_time, is_cancelled, title, notes, created_at
+       FROM meetings 
+       WHERE group_id = $1 
+       AND meeting_date >= CURRENT_DATE
+       AND is_cancelled = FALSE
+       ORDER BY meeting_date ASC
+       LIMIT 30`,
+      [leader.group_id]
+    ),
+    // Reuniões passadas com título e contagem de presenças
+    queryMany<{
+      id: string;
+      group_id: string;
+      meeting_date: string;
+      meeting_time: string | null;
+      is_cancelled: boolean;
+      title: string | null;
+      notes: string | null;
+      created_at: string;
+      attendance_count: number;
+    }>(
+      `SELECT 
+         m.id, m.group_id, m.meeting_date, m.meeting_time, m.is_cancelled, 
+         m.title, m.notes, m.created_at,
+         COUNT(a.id)::int as attendance_count
+       FROM meetings m
+       LEFT JOIN attendance a ON a.meeting_id = m.id
+       WHERE m.group_id = $1 AND m.meeting_date < CURRENT_DATE
+       GROUP BY m.id, m.group_id, m.meeting_date, m.meeting_time, m.is_cancelled,
+                m.title, m.notes, m.created_at
+       ORDER BY m.meeting_date DESC
+       LIMIT 10`,
+      [leader.group_id]
+    ),
+  ]);
 
-  const { data: meetings } = await supabase
-    .from('meetings')
-    .select('*')
-    .eq('group_id', leader.group_id)
-    .gte('meeting_date', today)
-    .lte('meeting_date', future)
-    .order('meeting_date', { ascending: true });
+  if (!group) {
+    return <div>Configuração do grupo não encontrada.</div>;
+  }
 
-  // Buscar reuniões passadas (últimas 10)
-  const { data: pastMeetings } = await supabase
-    .from('meetings')
-    .select('*, attendance(count)')
-    .eq('group_id', leader.group_id)
-    .lt('meeting_date', today)
-    .order('meeting_date', { ascending: false })
-    .limit(10);
+  const pastMeetingsWithAttendance = pastMeetings.map((m) => ({
+    ...m,
+    attendanceCount: m.attendance_count,
+  }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Agenda</h1>
-        <p className="text-muted-foreground">
-          Reuniões às {group ? `${getDayOfWeekName(group.default_meeting_day)}s, ${group.default_meeting_time}` : '—'}
-        </p>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Próximas Reuniões */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              Próximas Reuniões
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {meetings && meetings.length > 0 ? (
-              <div className="space-y-3">
-                {meetings.map((meeting) => (
-                  <div
-                    key={meeting.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{formatDate(meeting.meeting_date)}</p>
-                      {meeting.notes && (
-                        <p className="text-sm text-muted-foreground">{meeting.notes}</p>
-                      )}
-                    </div>
-                    {meeting.is_cancelled ? (
-                      <Badge variant="destructive">Cancelada</Badge>
-                    ) : (
-                      <Badge>Confirmada</Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Nenhuma reunião agendada para os próximos 30 dias.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Reuniões Passadas */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Histórico Recente
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pastMeetings && pastMeetings.length > 0 ? (
-              <div className="space-y-3">
-                {pastMeetings.map((meeting) => {
-                  const attendanceCount = Array.isArray(meeting.attendance) 
-                    ? meeting.attendance[0]?.count || 0
-                    : 0;
-                  
-                  return (
-                    <div
-                      key={meeting.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{formatDate(meeting.meeting_date)}</p>
-                        {meeting.is_cancelled ? (
-                          <p className="text-sm text-muted-foreground">Cancelada</p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            {attendanceCount} {attendanceCount === 1 ? 'registro' : 'registros'} de presença
-                          </p>
-                        )}
-                      </div>
-                      {meeting.is_cancelled && <Badge variant="outline">Folga</Badge>}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Nenhuma reunião no histórico.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuração do Grupo</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Dia da Semana:</span>
-            <span className="font-medium">{getDayOfWeekName(group.default_meeting_day)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Horário:</span>
-            <span className="font-medium">{group.default_meeting_time}</span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            Para alterar o dia ou horário padrão das reuniões, entre em contato com o administrador.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <AgendaClient
+      meetings={meetings}
+      pastMeetings={pastMeetingsWithAttendance}
+      group={group}
+    />
   );
 }

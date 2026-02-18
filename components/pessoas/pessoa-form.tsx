@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,7 +28,6 @@ interface PessoaFormProps {
 
 export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
   const router = useRouter();
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: initialData?.full_name || '',
@@ -45,24 +43,32 @@ export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
     try {
       if (initialData) {
         // Update existing member
-        const { error } = await supabase
-          .from('members')
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', initialData.id);
-
-        if (error) throw error;
-      } else {
-        // Create new member
-        const { error } = await supabase.from('members').insert({
-          ...formData,
-          group_id: groupId,
-          is_active: true,
+        const response = await fetch(`/api/members/${initialData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
         });
 
-        if (error) throw error;
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erro ao atualizar pessoa');
+        }
+      } else {
+        // Create new member
+        const response = await fetch('/api/members', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erro ao criar pessoa');
+        }
       }
 
       router.push('/pessoas');

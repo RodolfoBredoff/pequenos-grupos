@@ -1,8 +1,9 @@
+'use client';
+
 import { WhatsAppButton } from './whatsapp-button';
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/ui/link-button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
 import { calculateAge, formatPhone } from '@/lib/utils';
 import { MEMBER_TYPE_LABELS } from '@/lib/constants';
 import { Pencil, Cake } from 'lucide-react';
@@ -53,12 +54,10 @@ export function PessoaCard({ member }: PessoaCardProps) {
       
       <CardFooter className="p-4 pt-0 flex gap-2">
         <WhatsAppButton phone={member.phone} name={member.full_name} className="flex-1" />
-        <Link href={`/pessoas/${member.id}`} className="flex-1">
-          <Button variant="outline" size="sm" className="w-full">
-            <Pencil className="h-4 w-4" />
-            Editar
-          </Button>
-        </Link>
+        <LinkButton href={`/pessoas/${member.id}`} variant="outline" size="sm" className="flex-1 w-full">
+          <Pencil className="h-4 w-4" />
+          Editar
+        </LinkButton>
       </CardFooter>
     </Card>
   );

@@ -1,47 +1,52 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import { runAllChecks } from '@/lib/alerts/checker';
+import { getSSMParameter } from '@/lib/aws/ssm-client';
 
+/**
+ * GET /api/webhooks/cron
+ * Endpoint para executar verificações automáticas (faltas consecutivas, aniversários)
+ * Deve ser chamado diariamente via cron job
+ */
 export async function GET(request: Request) {
   try {
-    // Verificar secret de autorização
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    // Verificar autenticação via header (CRON_SECRET)
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = await getSSMParameter('/pequenos-grupos/app/cron-secret', true) 
+      || process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      return NextResponse.json(
+        { error: 'CRON_SECRET não configurado' },
+        { status: 500 }
+      );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    // Verificar token
+    if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      );
+    }
 
-    // Chamar Edge Functions
-    const results = await Promise.all([
-      fetch(`${supabaseUrl}/functions/v1/check-absences`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-      }),
-      fetch(`${supabaseUrl}/functions/v1/check-birthdays`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-      }),
-    ]);
-
-    const [absencesResult, birthdaysResult] = await Promise.all(
-      results.map((r) => r.json())
-    );
+    // Executar verificações
+    const results = await runAllChecks();
 
     return NextResponse.json({
       success: true,
-      absences: absencesResult,
-      birthdays: birthdaysResult,
+      timestamp: new Date().toISOString(),
+      results: {
+        absenceAlerts: results.absenceAlerts,
+        birthdayNotifications: results.birthdayNotifications,
+      },
     });
-  } catch (error: any) {
-    console.error('Cron job error:', error);
+  } catch (error) {
+    console.error('Erro ao executar cron:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        error: 'Erro ao processar verificações',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

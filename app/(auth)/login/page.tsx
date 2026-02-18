@@ -1,70 +1,66 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Mail } from 'lucide-react';
 
-const DEBUG_LOG_ENDPOINT = 'http://127.0.0.1:7242/ingest/a57e1808-337a-4c6d-85b0-c37698065cde';
-
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const reason = useMemo(() => searchParams.get('reason'), [searchParams]);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [magicLinkUrl, setMagicLinkUrl] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const supabase = createClient();
 
-  // #region agent log
   useEffect(() => {
     setMounted(true);
-    const hasDarkReader =
-      typeof document !== 'undefined' &&
-      (document.documentElement.hasAttribute('data-darkreader-mode') ||
-        !!document.querySelector('[data-darkreader-inline-stroke]'));
-    fetch(DEBUG_LOG_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'app/(auth)/login/page.tsx:useEffect',
-        message: 'Login mount - extension check',
-        data: { hasDarkReader, mounted: true },
-        timestamp: Date.now(),
-        hypothesisId: 'H1',
-      }),
-    }).catch(() => {});
   }, []);
-  // #endregion
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+    setMagicLinkUrl(null);
+
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { 
-          emailRedirectTo: `${window.location.origin}/dashboard` 
-        }
+      const response = await fetch('/api/auth/magic-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
       });
 
-      if (error) throw error;
-      setSent(true);
-    } catch (error: any) {
-      console.error('Login error:', error);
-      const msg = error?.message ?? '';
-      const isRateLimit = /rate limit|too many requests|429/i.test(msg);
-      if (isRateLimit) {
-        alert(
-          'Limite de envio de e-mails atingido. O Supabase restringe quantos links podem ser enviados em um período.\n\nAguarde alguns minutos e tente novamente.'
-        );
-      } else {
-        alert('Erro ao enviar link: ' + msg);
+      const data = await response.json();
+
+      if (!response.ok) {
+        const msg = data.details || data.error || 'Erro ao enviar link de acesso';
+        throw new Error(msg);
       }
+
+      if (data.magicLink) {
+        setMagicLinkUrl(data.magicLink);
+        console.log('🔗 Magic Link (DEV):', data.magicLink);
+      }
+
+      setSent(true);
+    } catch (error: unknown) {
+      console.error('Login error:', error);
+      const msg = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert('Erro ao enviar link: ' + msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const copyMagicLink = () => {
+    if (magicLinkUrl) {
+      navigator.clipboard.writeText(magicLinkUrl);
+      alert('Link copiado! Cole no navegador para fazer login.');
     }
   };
 
@@ -84,10 +80,26 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground text-center mb-4">
             Clique no link no e-mail para fazer login. O link expira em 1 hora.
           </p>
+
+          {magicLinkUrl && (
+            <div className="mb-4 p-3 rounded-lg bg-muted border text-center">
+              <p className="text-xs text-muted-foreground mb-2">Modo desenvolvimento — use o link abaixo:</p>
+              <a
+                href={magicLinkUrl}
+                className="text-sm text-primary underline break-all block mb-2"
+              >
+                {magicLinkUrl}
+              </a>
+              <Button type="button" variant="secondary" size="sm" onClick={copyMagicLink}>
+                Copiar link
+              </Button>
+            </div>
+          )}
+
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => setSent(false)}
+            onClick={() => { setSent(false); setMagicLinkUrl(null); }}
           >
             Usar outro e-mail
           </Button>
@@ -105,6 +117,11 @@ export default function LoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {reason === 'no-leader' && (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+            Sua conta ainda não está cadastrada como líder de um grupo. Execute o setup inicial ou peça ao administrador para vincular seu e-mail a um grupo.
+          </p>
+        )}
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>

@@ -1,6 +1,6 @@
 # Pequenos Grupos Manager - MVP V1.0
 
-Sistema de gestão para Pequenos Grupos de Estudo, desenvolvido como Progressive Web App (PWA) com Next.js 15 e Supabase.
+Sistema de gestão para Pequenos Grupos de Estudo, desenvolvido como Progressive Web App (PWA) com Next.js 15 e PostgreSQL.
 
 ## 🎯 Características Principais
 
@@ -12,7 +12,7 @@ Sistema de gestão para Pequenos Grupos de Estudo, desenvolvido como Progressive
 - ✅ **PWA**: Funciona como app nativo, instalável em iOS/Android
 - ✅ **Offline-Ready**: Service Worker para cache e melhor experiência
 - ✅ **Multi-tenancy**: Suporte para múltiplos grupos e líderes
-- ✅ **Segurança**: Row Level Security (RLS) do Supabase
+- ✅ **Segurança**: Autenticação própria com JWT e Magic Link
 
 ## 🚀 Stack Tecnológica
 
@@ -25,89 +25,55 @@ Sistema de gestão para Pequenos Grupos de Estudo, desenvolvido como Progressive
 - **next-pwa** (PWA support)
 
 ### Backend
-- **Supabase** (PostgreSQL + Auth + Edge Functions + Realtime)
-- **Row Level Security (RLS)**
-- **Edge Functions** (Deno)
+- **PostgreSQL 15+** (banco de dados)
+- **Node.js** (runtime)
+- **JWT** (autenticação)
+- **Magic Link** (login sem senha)
 
-### Deploy
-- **AWS Amplify** (frontend - recomendado, custo mínimo)
-- **Vercel** (frontend - alternativa)
-- **Supabase Cloud** (backend)
+### Deploy (Fase 1 - Infraestrutura AWS)
+- **AWS EC2** (t2.micro/t3.micro - Free Tier)
+- **AWS CloudFront** (CDN + SSL gratuito)
+- **PostgreSQL em Docker** (container na EC2)
+- **AWS SSM Parameter Store** (gerenciamento de secrets)
+- **GitHub Actions** (CI/CD com OIDC)
 
 ## 📦 Pré-requisitos
 
 - Node.js 18+ (com npm)
-- Conta no [Supabase](https://supabase.com)
-- Conta no [Vercel](https://vercel.com) (para deploy)
+- PostgreSQL 15+ (local ou remoto)
+- Docker e Docker Compose (opcional, para PostgreSQL)
+- Conta AWS (para deploy em produção)
 
-## 🛠️ Setup Local
+## 🚀 Quick Start
 
-### 1. Instalar Dependências
+**📖 Comece aqui:** [`QUICKSTART.md`](./QUICKSTART.md)
+
+Guia rápido para:
+- ✅ Setup local em **5-10 minutos**
+- ☁️ Setup AWS em **30-60 minutos**
+- 🐛 Troubleshooting rápido
+
+### Resumo Ultra-Rápido (Local)
 
 ```bash
-cd pequenos-grupos
+# 1. Instalar dependências
 npm install
-```
 
-### 2. Configurar Supabase
+# 2. Iniciar PostgreSQL (Docker)
+docker run -d --name pequenos-grupos-db \
+  -e POSTGRES_PASSWORD=senha_segura \
+  -e POSTGRES_DB=pequenos_grupos \
+  -p 5432:5432 postgres:15-alpine
 
-1. Crie um projeto no [Supabase Dashboard](https://supabase.com/dashboard)
+# 3. Executar migrações
+docker exec -i pequenos-grupos-db psql -U postgres -d pequenos_grupos < db/migrations/001_initial_schema.sql
 
-2. Execute o schema SQL:
-   - Vá em `SQL Editor` no dashboard
-   - Copie e cole o conteúdo de `supabase/migrations/20240101_initial_schema.sql`
-   - Execute o script
+# 4. Configurar .env.local (copie de .env.example e ajuste)
 
-3. Configure as Edge Functions:
-   ```bash
-   # Instalar Supabase CLI
-   npm install -g supabase
-   
-   # Login
-   supabase login
-   
-   # Link ao projeto
-   supabase link --project-ref seu-project-ref
-   
-   # Deploy functions
-   supabase functions deploy check-absences
-   supabase functions deploy check-birthdays
-   ```
+# 5. Criar primeiro usuário
+./scripts/setup-database.sh
 
-### 3. Configurar Variáveis de Ambiente
-
-Crie um arquivo `.env.local` na raiz do projeto:
-
-```bash
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
-SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
-
-# Cron Job
-CRON_SECRET=gere-uma-string-aleatoria-aqui
-
-# Web Push (opcional)
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=sua-vapid-public-key
-VAPID_PRIVATE_KEY=sua-vapid-private-key
-```
-
-Para obter as chaves do Supabase:
-- `NEXT_PUBLIC_SUPABASE_URL`: Settings → API → Project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Settings → API → anon public
-- `SUPABASE_SERVICE_ROLE_KEY`: Settings → API → service_role (⚠️ Mantenha secreta!)
-
-### 4. Configurar Autenticação no Supabase
-
-1. Vá em `Authentication` → `Providers` → `Email`
-2. Ative "Enable Email provider"
-3. Desative "Confirm email" (para desenvolvimento)
-4. Configure o "Site URL" para `http://localhost:3000`
-5. Adicione `http://localhost:3000/**` em "Redirect URLs"
-
-### 5. Executar Localmente
-
-```bash
+# 6. Rodar aplicação
 npm run dev
 ```
 
@@ -115,121 +81,83 @@ Acesse: http://localhost:3000
 
 ## 🎨 Criar Primeiro Usuário (Leader)
 
-Como o sistema usa Row Level Security, você precisa criar um líder manualmente via SQL:
+Veja [`SETUP_LOCAL.md`](./SETUP_LOCAL.md) para instruções detalhadas.
 
-```sql
--- 1. Criar organização
-INSERT INTO organizations (name) VALUES ('Minha Igreja')
-RETURNING id;
+Resumo:
+1. Execute o script de setup: `./scripts/setup-database.sh`
+2. Escolha criar dados iniciais
+3. Use o email cadastrado para fazer login
 
--- 2. Criar grupo (substitua organization_id pelo ID retornado acima)
-INSERT INTO groups (organization_id, name, default_meeting_day, default_meeting_time)
-VALUES (
-  'uuid-da-organizacao',
-  'Pequeno Grupo Central',
-  3, -- 3 = Quarta-feira (0=Domingo, 6=Sábado)
-  '19:00:00'
-)
-RETURNING id;
+## 📱 Deploy em Produção (AWS)
 
--- 3. Criar líder (após fazer login pela primeira vez)
--- Pegue o auth.uid do usuário logado em: Authentication → Users
-INSERT INTO leaders (id, organization_id, group_id, full_name, email)
-VALUES (
-  'uuid-do-usuario-auth',
-  'uuid-da-organizacao',
-  'uuid-do-grupo',
-  'João Silva',
-  'joao@email.com'
-);
+**Para deploy com custo zero (Free Tier) e máxima segurança:**
+
+📖 **Veja o guia completo passo a passo:** [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md)
+
+### Arquitetura de Deploy
+
+```
+CloudFront (SSL/HTTPS)
+    ↓
+EC2 (t2.micro Free Tier)
+    ├── Next.js App (Docker)
+    └── PostgreSQL (Docker + EBS Volume)
 ```
 
-## 📱 Deploy em Produção
+### Resumo Rápido
 
-### Deploy Frontend (Vercel)
+1. **Siga o guia completo:** [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md)
+   - Criação de EC2, Security Groups, IAM Roles
+   - Configuração de CloudFront e SSL
+   - Setup de SSM Parameter Store
+   - Configuração de GitHub Actions OIDC
 
-1. Instale a Vercel CLI:
-   ```bash
-   npm install -g vercel
-   ```
-
-2. Deploy:
-   ```bash
-   vercel --prod
-   ```
-
-3. Configure as variáveis de ambiente no dashboard da Vercel (mesmas do `.env.local`)
-
-4. Configure o Cron Job:
-   - O arquivo `vercel.json` já está configurado
-   - Vercel executará `/api/webhooks/cron` diariamente às 8h AM
-
-### Deploy Frontend (AWS Amplify) - **RECOMENDADO**
-
-**Para deploy com custo mínimo (~$0-5/mês) e alta segurança:**
-
-📖 **Veja o guia completo:** [`DEPLOY_AWS.md`](./DEPLOY_AWS.md)
-
-**Resumo rápido:**
-
-1. **Setup automatizado:**
-   ```bash
-   ./scripts/setup-aws.sh
-   ```
-
-2. **Ou via Terraform (IaC):**
-   ```bash
-   cd aws/terraform
-   terraform init
-   terraform apply
-   ```
-
-3. **Deploy via GitHub Actions:**
+2. **Deploy via GitHub Actions:**
    - Push para `main` = deploy automático
-   - Pull Request = preview deploy
+   - CI/CD com OIDC (sem Access Keys)
 
-**Benefícios:**
-- ✅ $0-5/mês (vs $20+/mês no Vercel após free tier)
-- ✅ CI/CD gratuito (GitHub Actions)
-- ✅ Secrets no AWS SSM Parameter Store
-- ✅ CloudWatch monitoring incluído
-- ✅ CloudFront CDN global
-- ✅ IAM security best practices
+3. **Benefícios:**
+   - ✅ $0/mês (Free Tier)
+   - ✅ CI/CD gratuito (GitHub Actions)
+   - ✅ Secrets no AWS SSM Parameter Store
+   - ✅ CloudFront CDN global + SSL gratuito
+   - ✅ IAM Roles only (zero Access Keys)
+   - ✅ PostgreSQL com persistência EBS
 
-### Configurar Supabase para Produção
+### Migração Futura
 
-1. No Supabase Dashboard → Authentication:
-   - Atualize "Site URL" para `https://main.xxx.amplifyapp.com` (AWS) ou `https://seu-dominio.vercel.app` (Vercel)
-   - Adicione a URL em "Redirect URLs"
+📖 **Guia de migração para RDS:** [`DB_MIGRATION.md`](./DB_MIGRATION.md)
 
-2. Configure o CRON_SECRET:
-   - Adicione a mesma variável no AWS SSM (via `setup-aws.sh`) ou Vercel
+📖 **Guia de migração de dados do Supabase:** [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md)
 
 ## 🔒 Segurança
 
-- ✅ Autenticação via Magic Link (OTP por e-mail)
-- ✅ Row Level Security (RLS) em todas as tabelas
-- ✅ Líderes só acessam dados do próprio grupo
-- ✅ Service Role Key nunca exposta ao cliente
+- ✅ Autenticação via Magic Link (login sem senha)
+- ✅ JWT tokens para sessões
+- ✅ Cookies seguros (httpOnly, secure)
+- ✅ Líderes só acessam dados do próprio grupo (verificação na aplicação)
 - ✅ HTTPS obrigatório em produção
+- ✅ Secrets no AWS SSM Parameter Store
 
 ## 📊 Estrutura do Banco de Dados
 
 ```
-organizations (multi-tenancy)
-├── groups (grupos de estudo)
-│   ├── leaders (líderes vinculados ao auth.users)
-│   ├── members (participantes e visitantes)
-│   ├── meetings (agenda de encontros)
-│   │   └── attendance (presença/falta)
-│   └── notifications (alertas e avisos)
+users (autenticação)
+├── sessions (sessões ativas)
+├── magic_link_tokens (tokens temporários)
+└── leaders (líderes vinculados)
+    └── groups (grupos de estudo)
+        ├── members (participantes e visitantes)
+        ├── meetings (agenda de encontros)
+        │   └── attendance (presença/falta)
+        └── notifications (alertas e avisos)
 ```
 
 ## 🎯 Funcionalidades
 
 ### 1. Dashboard
 - Estatísticas do grupo (total, participantes, visitantes)
-- Alertas de faltas consecutivas (3+)
+- Alertas de faltas consecutivas (2+)
 - Notificações de aniversários
 
 ### 2. Gestão de Pessoas
@@ -250,10 +178,16 @@ organizations (multi-tenancy)
 - Configuração do grupo (dia/horário)
 - Suporte para marcar "semanas de folga"
 
-### 5. Notificações Automáticas
-- **Faltas Consecutivas**: Alerta após 3 faltas seguidas
+### 5. Dashboard de Engajamento
+- Gráficos de presença mensal (últimos 6 meses)
+- Top 5 mais presentes
+- Top 5 mais ausentes
+- Membros com 100% de presença
+
+### 6. Notificações Automáticas
+- **Faltas Consecutivas**: Alerta após 2 faltas seguidas
 - **Aniversários**: Notificação no dia do aniversário
-- Execução diária via Vercel Cron (8h AM)
+- Execução diária via cron job (`/api/webhooks/cron`)
 
 ## 🔧 Desenvolvimento
 
@@ -272,14 +206,17 @@ pequenos-grupos/
 │   ├── chamada/          # Componentes de chamada
 │   └── dashboard/        # Componentes do dashboard
 ├── lib/                   # Utilitários
-│   ├── supabase/         # Clientes Supabase
+│   ├── db/               # Cliente PostgreSQL e queries
+│   ├── auth/             # Autenticação (JWT, sessions)
+│   ├── agenda/           # Geração de agenda
+│   ├── alerts/           # Verificação de alertas
+│   ├── aws/              # Clientes AWS (SSM)
 │   ├── utils.ts          # Funções auxiliares
 │   └── constants.ts      # Constantes
 ├── hooks/                 # React hooks
 ├── types/                 # TypeScript types
-├── supabase/             # Supabase config
-│   ├── functions/        # Edge Functions
-│   └── migrations/       # SQL migrations
+├── db/                    # Migrações PostgreSQL
+│   └── migrations/
 └── public/               # Arquivos estáticos
 ```
 
@@ -298,43 +235,44 @@ npm run start
 # Linting
 npm run lint
 
-# Deploy Vercel
-vercel --prod
+# Setup do banco de dados
+./scripts/setup-database.sh
 
-# Deploy Supabase Functions
-supabase functions deploy check-absences
-supabase functions deploy check-birthdays
+# Deploy via GitHub Actions (automático no push para main)
+git push origin main
 ```
 
 ## 🐛 Troubleshooting
 
-### Erro: "Row Level Security policy violation"
-- Certifique-se de que o líder foi inserido corretamente na tabela `leaders`
-- Verifique se `group_id` está preenchido
-- Confirme que o `id` do líder corresponde ao `auth.uid`
+### Erro: "DATABASE_URL não configurada"
+- Verifique se `.env.local` existe
+- Verifique se as variáveis estão corretas
+- Reinicie o servidor de desenvolvimento
 
-### Notificações não funcionam
-- Verifique se o `CRON_SECRET` está configurado no Vercel e Supabase
-- Confirme que as Edge Functions foram deployadas
-- Teste manualmente: `curl https://seu-app.vercel.app/api/webhooks/cron -H "Authorization: Bearer SEU_CRON_SECRET"`
+### Erro: "Connection refused"
+- Verifique se PostgreSQL está rodando
+- Verifique host, porta e credenciais
+- Teste conexão: `psql -h localhost -U postgres -d pequenos_grupos`
 
-### PWA não instala
-- Confirme que está usando HTTPS (obrigatório para PWA)
-- Verifique se `manifest.json` está acessível
-- Certifique-se de que os ícones estão em `public/icons/`
+### Erro: "relation does not exist"
+- Execute as migrações: `psql -d pequenos_grupos -f db/migrations/001_initial_schema.sql`
 
-## 📚 Recursos Adicionais
+### Magic Link não funciona
+- Verifique `NEXT_PUBLIC_APP_URL` no `.env.local`
+- Em desenvolvimento, o link aparece no console
+- Verifique se o token não expirou (1 hora)
 
-- [Documentação Next.js](https://nextjs.org/docs)
-- [Documentação Supabase](https://supabase.com/docs)
-- [shadcn/ui](https://ui.shadcn.com)
-- [Tailwind CSS](https://tailwindcss.com/docs)
+## 📚 Documentação
 
-## 🎁 Funcionalidades Bônus Sugeridas
+### 🚀 Início Rápido
+- **[`QUICKSTART.md`](./QUICKSTART.md)** ⭐ - **Comece aqui!** Guia rápido para setup local e AWS
 
-1. **Dashboard de Engajamento**: Gráficos de presença mensal
-2. **Broadcast WhatsApp**: Enviar mensagem para todos via links
-3. **Modo Offline Completo**: Sync automático com IndexedDB
+### 📖 Guias Detalhados
+- [`SETUP_LOCAL.md`](./SETUP_LOCAL.md) - Guia completo de setup local
+- [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md) - Guia completo passo a passo de deploy AWS
+- [`DB_MIGRATION.md`](./DB_MIGRATION.md) - Guia de migração para RDS
+- [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md) - Guia de migração de dados do Supabase
+- [`FASE_2_PROGRESS.md`](./FASE_2_PROGRESS.md) - Detalhes técnicos da migração
 
 ## 📝 Licença
 

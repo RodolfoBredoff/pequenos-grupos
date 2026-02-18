@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,17 +20,17 @@ interface AlertsPanelProps {
 }
 
 export function AlertsPanel({ notifications: initialNotifications }: AlertsPanelProps) {
-  const supabase = createClient();
   const [notifications, setNotifications] = useState(initialNotifications);
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: 'PUT',
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Erro ao marcar notificação como lida');
+      }
 
       setNotifications((prev) =>
         prev.map((notif) =>

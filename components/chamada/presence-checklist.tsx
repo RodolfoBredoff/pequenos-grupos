@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useOfflineSync } from '@/hooks/use-offline-sync';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,7 +24,6 @@ interface PresenceChecklistProps {
 }
 
 export function PresenceChecklist({ meetingId, members, attendance }: PresenceChecklistProps) {
-  const supabase = createClient();
   const { isOnline, addToPendingSync } = useOfflineSync();
   const [presenceMap, setPresenceMap] = useState<Record<string, boolean>>(
     attendance.reduce((acc, att) => {
@@ -43,27 +41,37 @@ export function PresenceChecklist({ meetingId, members, attendance }: PresenceCh
     setSaving(true);
     
     try {
-      const updates = members.map((member) => ({
-        meeting_id: meetingId,
+      const attendanceData = members.map((member) => ({
         member_id: member.id,
         is_present: presenceMap[member.id] ?? false,
       }));
 
       if (isOnline) {
-        // Online: salvar diretamente no Supabase
-        const { error } = await supabase
-          .from('attendance')
-          .upsert(updates, { 
-            onConflict: 'meeting_id,member_id',
-            ignoreDuplicates: false 
-          });
+        // Online: salvar via API
+        const response = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            meeting_id: meetingId,
+            attendance: attendanceData,
+          }),
+        });
 
-        if (error) throw error;
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erro ao salvar presença');
+        }
+
         alert('Presença salva com sucesso!');
       } else {
         // Offline: adicionar à fila de sync
-        for (const update of updates) {
-          await addToPendingSync('attendance', 'create', update);
+        for (const item of attendanceData) {
+          await addToPendingSync('attendance', 'create', {
+            meeting_id: meetingId,
+            ...item,
+          });
         }
         alert('Presença salva localmente! Será sincronizada quando a conexão voltar.');
       }

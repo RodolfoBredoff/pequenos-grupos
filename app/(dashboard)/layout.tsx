@@ -1,46 +1,39 @@
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/auth/session';
+import { getCurrentLeader } from '@/lib/db/queries';
+import { queryOne } from '@/lib/db/postgres';
 import { OfflineIndicator } from '@/components/dashboard/offline-indicator';
 import { DashboardNav } from '@/components/dashboard/dashboard-nav';
-
-async function logout() {
-  'use server';
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect('/login');
-}
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getSession();
 
   if (!user) {
-    redirect('/login');
+    redirect('/api/auth/clear-session?to=/login');
   }
 
-  // Buscar informações do líder (sem join para evitar dependência do nome da relação no Supabase)
-  const { data: leader } = await supabase
-    .from('leaders')
-    .select('full_name, group_id')
-    .eq('id', user.id)
-    .single();
+  // Buscar informações do líder
+  const leader = await getCurrentLeader();
+
+  if (!leader) {
+    redirect('/api/auth/clear-session?to=/login&reason=no-leader');
+  }
 
   let groupName = 'Meu Grupo';
-  if (leader?.group_id) {
-    const { data: group } = await supabase
-      .from('groups')
-      .select('name')
-      .eq('id', leader.group_id)
-      .single();
+  if (leader.group_id) {
+    const group = await queryOne<{ name: string }>(
+      `SELECT name FROM groups WHERE id = $1`,
+      [leader.group_id]
+    );
     groupName = group?.name ?? 'Meu Grupo';
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" suppressHydrationWarning>
       {/* Mobile Header */}
       <header className="lg:hidden sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
@@ -52,7 +45,6 @@ export default async function DashboardLayout({
         <DashboardNav
           groupName={groupName}
           leaderDisplayName={leader?.full_name || user.email || ''}
-          logoutAction={logout}
         />
 
         {/* Main Content */}

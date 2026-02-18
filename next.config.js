@@ -5,13 +5,13 @@ const withPWA = require('next-pwa')({
   disable: process.env.NODE_ENV === 'development',
   runtimeCaching: [
     {
-      urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+      urlPattern: /^\/api\/.*/i,
       handler: 'NetworkFirst',
       options: {
-        cacheName: 'supabase-cache',
+        cacheName: 'api-cache',
         expiration: {
-          maxEntries: 16,
-          maxAgeSeconds: 24 * 60 * 60 // 24 hours
+          maxEntries: 50,
+          maxAgeSeconds: 60 // 1 minute
         }
       }
     }
@@ -21,6 +21,7 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb'

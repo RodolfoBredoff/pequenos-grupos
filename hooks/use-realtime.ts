@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function useRealtime(table: string, groupId: string) {
   const supabase = createClient();
-  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+  const [channel, setChannel] = useState<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
 
   useEffect(() => {
     // Subscribe to realtime changes

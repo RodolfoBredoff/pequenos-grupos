@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentLeader, getMemberById } from '@/lib/db/queries';
 import { PessoaForm } from '@/components/pessoas/pessoa-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
@@ -8,25 +8,13 @@ export default async function EditarPessoaPage({
 }: {
   params: { id: string };
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  const { data: leader } = await supabase
-    .from('leaders')
-    .select('group_id')
-    .eq('id', user!.id)
-    .single();
+  const leader = await getCurrentLeader();
 
   if (!leader?.group_id) {
     return <div>Grupo não encontrado.</div>;
   }
 
-  const { data: member } = await supabase
-    .from('members')
-    .select('*')
-    .eq('id', params.id)
-    .eq('group_id', leader.group_id)
-    .single();
+  const member = await getMemberById(params.id);
 
   if (!member) {
     notFound();
