@@ -11,9 +11,9 @@ export async function getPool(): Promise<Pool> {
     return pool;
   }
 
-  // Buscar connection string do SSM ou variável de ambiente
-  const databaseUrl = await getSSMParameter('/pequenos-grupos/database/url', true) 
-    || process.env.DATABASE_URL;
+  // DATABASE_URL do ambiente tem prioridade (Docker, etc). SSM é fallback.
+  const databaseUrl = process.env.DATABASE_URL
+    || (await getSSMParameter('/pequenos-grupos/database/url', true));
 
   if (!databaseUrl) {
     throw new Error('DATABASE_URL não configurada. Configure no SSM Parameter Store ou variável de ambiente.');
