@@ -1,5 +1,10 @@
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { Pool, QueryResult, QueryResultRow, types } from 'pg';
 import { getSSMParameter } from '@/lib/aws/ssm-client';
+
+// Retornar DATE como string "YYYY-MM-DD" em vez de Date object (evita desvio de fuso horário)
+types.setTypeParser(1082, (val: string) => val);
+// Retornar TIMESTAMP sem timezone como string
+types.setTypeParser(1114, (val: string) => val);
 
 let pool: Pool | null = null;
 

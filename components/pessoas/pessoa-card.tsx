@@ -4,7 +4,7 @@ import { WhatsAppButton } from './whatsapp-button';
 import { LinkButton } from '@/components/ui/link-button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { calculateAge, formatPhone } from '@/lib/utils';
+import { calculateAge, formatPhone, isTodayBirthday } from '@/lib/utils';
 import { MEMBER_TYPE_LABELS } from '@/lib/constants';
 import { Pencil, Cake } from 'lucide-react';
 
@@ -22,23 +22,14 @@ interface PessoaCardProps {
 
 export function PessoaCard({ member }: PessoaCardProps) {
   let age: number | null = null;
-  let birthDate: Date | null = null;
   if (member.birth_date) {
     try {
-      const bdStr = typeof member.birth_date === 'string' ? member.birth_date.split('T')[0] : String(member.birth_date);
-      birthDate = new Date(bdStr);
-      if (!isNaN(birthDate.getTime())) {
-        age = calculateAge(member.birth_date);
-      }
+      age = calculateAge(member.birth_date);
     } catch {
       age = null;
-      birthDate = null;
     }
   }
-  const today = new Date();
-  const isBirthday = birthDate
-    ? birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate()
-    : false;
+  const isBirthday = isTodayBirthday(member.birth_date);
   
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">

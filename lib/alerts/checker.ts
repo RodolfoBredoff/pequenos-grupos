@@ -3,9 +3,10 @@
  * Executado pelo cron sem sessão de usuário - processa TODOS os grupos
  */
 
-import { query, queryMany } from '@/lib/db/postgres';
+import { query, queryMany, queryOne } from '@/lib/db/postgres';
+import { sendEmail, buildBirthdayEmailHtml } from '@/lib/email/sender';
 
-const CONSECUTIVE_ABSENCES_THRESHOLD = 2; // Alerta após 2 faltas consecutivas
+const CONSECUTIVE_ABSENCES_THRESHOLD = 2;
 
 /**
  * Verifica faltas consecutivas e cria alertas para todos os grupos
@@ -69,8 +70,7 @@ export async function checkConsecutiveAbsences(): Promise<number> {
 }
 
 /**
- * Verifica aniversariantes do dia e cria notificações para todos os grupos
- * O líder vê as notificações no painel de alertas do dashboard
+ * Verifica aniversariantes do dia, cria notificações e envia e-mail ao líder
  */
 export async function checkBirthdaysToday(): Promise<number> {
   const groups = await queryMany<{ id: string }>(
@@ -83,6 +83,19 @@ export async function checkBirthdaysToday(): Promise<number> {
   for (const group of groups) {
     const birthdays = await queryMany<{ id: string; full_name: string; phone: string }>(
       `SELECT * FROM get_birthdays_today($1)`,
+      [group.id]
+    );
+
+    if (birthdays.length === 0) continue;
+
+    // Buscar dados do grupo e do líder para envio de e-mail
+    const groupData = await queryOne<{ name: string }>(
+      `SELECT name FROM groups WHERE id = $1`,
+      [group.id]
+    );
+
+    const leader = await queryOne<{ full_name: string; email: string }>(
+      `SELECT full_name, email FROM leaders WHERE group_id = $1 LIMIT 1`,
       [group.id]
     );
 
@@ -107,6 +120,23 @@ export async function checkBirthdaysToday(): Promise<number> {
           ]
         );
         notificationsCreated++;
+
+        // Enviar e-mail ao líder do grupo
+        if (leader?.email) {
+          const html = buildBirthdayEmailHtml({
+            leaderName: leader.full_name,
+            memberName: person.full_name,
+            memberPhone: person.phone || null,
+            groupName: groupData?.name ?? 'Seu Grupo',
+          });
+
+          await sendEmail({
+            to: leader.email,
+            subject: `🎂 Aniversário de ${person.full_name} hoje!`,
+            html,
+            text: `Olá ${leader.full_name}! Hoje é aniversário de ${person.full_name}. Envie uma mensagem de parabéns!`,
+          });
+        }
       }
     }
   }
