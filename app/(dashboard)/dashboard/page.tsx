@@ -20,15 +20,20 @@ export default async function DashboardPage() {
     );
   }
 
-  // Buscar nome do grupo, notificações, estatísticas, próximos encontros e próximos aniversariantes em paralelo
-  const [group, notifications, stats, upcomingMeetings, upcomingBirthdays] = await Promise.all([
+  // Buscar nome do grupo e dados base
+  const [group, notifications, stats] = await Promise.all([
     queryOne<{ name: string }>(
       `SELECT name FROM groups WHERE id = $1`,
       [leader.group_id]
     ),
     getUnreadNotifications(),
     getGroupStats(),
-    queryMany<{ id: string; meeting_date: string; title: string | null; meeting_time: string | null }>(
+  ]);
+
+  // Buscar próximos encontros (separado para não derrubar o dashboard se falhar)
+  let upcomingMeetings: Array<{ id: string; meeting_date: string; title: string | null; meeting_time: string | null }> = [];
+  try {
+    upcomingMeetings = await queryMany<{ id: string; meeting_date: string; title: string | null; meeting_time: string | null }>(
       `SELECT id, meeting_date, title, meeting_time
        FROM meetings
        WHERE group_id = $1
@@ -37,21 +42,41 @@ export default async function DashboardPage() {
        ORDER BY meeting_date ASC
        LIMIT 5`,
       [leader.group_id]
-    ),
-    queryMany<{ id: string; full_name: string; birth_date: string; member_type: string }>(
+    );
+  } catch (e) {
+    console.error('[Dashboard] Erro ao buscar próximos encontros:', e);
+  }
+
+  // Buscar próximos aniversariantes ordenados por proximidade do aniversário
+  let upcomingBirthdays: Array<{ id: string; full_name: string; birth_date: string; member_type: string }> = [];
+  try {
+    upcomingBirthdays = await queryMany<{ id: string; full_name: string; birth_date: string; member_type: string }>(
       `SELECT id, full_name, birth_date, member_type
        FROM members
        WHERE group_id = $1
          AND is_active = TRUE
          AND birth_date IS NOT NULL
        ORDER BY
-         -- Próximos aniversários no ano: calcula distância em dias até o próximo aniversário
-         (DATE_PART('doy', (DATE_TRUNC('year', CURRENT_DATE) + (birth_date - DATE_TRUNC('year', birth_date)))) -
-          DATE_PART('doy', CURRENT_DATE) + 366) % 366
+         CASE
+           WHEN TO_DATE(
+             TO_CHAR(CURRENT_DATE, 'YYYY') || TO_CHAR(birth_date, '-MM-DD'),
+             'YYYY-MM-DD'
+           ) >= CURRENT_DATE
+           THEN TO_DATE(
+             TO_CHAR(CURRENT_DATE, 'YYYY') || TO_CHAR(birth_date, '-MM-DD'),
+             'YYYY-MM-DD'
+           ) - CURRENT_DATE
+           ELSE TO_DATE(
+             TO_CHAR(CURRENT_DATE + INTERVAL '1 year', 'YYYY') || TO_CHAR(birth_date, '-MM-DD'),
+             'YYYY-MM-DD'
+           ) - CURRENT_DATE
+         END
        LIMIT 5`,
       [leader.group_id]
-    ),
-  ]);
+    );
+  } catch (e) {
+    console.error('[Dashboard] Erro ao buscar aniversariantes:', e);
+  }
 
   return (
     <div className="space-y-6">

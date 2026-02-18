@@ -2,9 +2,12 @@ import { Pool, QueryResult, QueryResultRow, types } from 'pg';
 import { getSSMParameter } from '@/lib/aws/ssm-client';
 
 // Retornar DATE como string "YYYY-MM-DD" em vez de Date object (evita desvio de fuso horário)
-types.setTypeParser(1082, (val: string) => val);
-// Retornar TIMESTAMP sem timezone como string
-types.setTypeParser(1114, (val: string) => val);
+try {
+  types.setTypeParser(1082, (val: string) => val);
+  types.setTypeParser(1114, (val: string) => val);
+} catch {
+  // Falha silenciosa: o app continua funcionando, apenas as datas podem ter fuso incorreto
+}
 
 let pool: Pool | null = null;
 
