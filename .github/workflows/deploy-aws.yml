@@ -114,6 +114,7 @@ jobs:
               'cd ${{ env.APP_DIR }} || { echo \"Directory ${{ env.APP_DIR }} not found\"; exit 1; }',
               'export DOCKER_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest',
               'echo \"${{ secrets.GITHUB_TOKEN }}\" | docker login ${{ env.ECR_REGISTRY }} -u ${{ github.actor }} --password-stdin',
+              'docker pull \"$DOCKER_IMAGE\"',
               'docker-compose pull',
               'docker-compose up -d',
               'docker-compose ps'
