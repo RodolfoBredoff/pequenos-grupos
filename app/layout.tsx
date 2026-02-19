@@ -6,18 +6,18 @@ import { InstallPrompt } from '@/components/pwa/install-prompt';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Pequenos Grupos Manager',
-  description: 'Sistema de gestão para Pequenos Grupos de Estudo',
+  title: 'Pastoreio',
+  description: 'Sistema de gestão de pequenos grupos — Pastoreio.io',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'PG Manager',
+    title: 'Pastoreio',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#4f46e5',
+  themeColor: '#2D6A4F',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -31,8 +31,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/icons/icon-192x192.png" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="icon" type="image/svg+xml" href="/icons/pastoreio.svg" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <div suppressHydrationWarning>
