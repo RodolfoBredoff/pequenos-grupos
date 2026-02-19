@@ -32,7 +32,10 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <link rel="icon" type="image/svg+xml" href="/icons/pastoreio.svg" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
+        {/* iOS usa apple-touch-icon sem sizes como prioridade */}
+        <link rel="apple-touch-icon" href="/icons/icon-512x512.png" />
         <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
