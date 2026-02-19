@@ -77,6 +77,7 @@ export default async function AgendaPage() {
       meetings={meetings}
       pastMeetings={pastMeetingsWithAttendance}
       group={group}
+      readOnly={leader.role === 'secretary'}
     />
   );
 }

@@ -46,6 +46,7 @@ interface AgendaClientProps {
   meetings: Meeting[];
   pastMeetings: MeetingWithCount[];
   group: GroupSettings;
+  readOnly?: boolean;
 }
 
 // Converte qualquer valor de data para string "YYYY-MM-DD" compatível com <input type="date">
@@ -467,7 +468,7 @@ function BulkMeetingDialog({
 // Componente principal
 // ============================================================
 
-export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: initialGroup }: AgendaClientProps) {
+export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: initialGroup, readOnly = false }: AgendaClientProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -523,26 +524,28 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
             {group.default_meeting_time.substring(0, 5)}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setShowBulkCreate(true)}
-            className="flex items-center gap-2"
-          >
-            <PlusCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">Gerar Encontros</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowGroupSettings(true)}
-            className="flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Configurações</span>
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowBulkCreate(true)}
+              className="flex items-center gap-2"
+            >
+              <PlusCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Gerar Encontros</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowGroupSettings(true)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Configurações</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -585,28 +588,32 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
                       ) : (
                         <Badge>Confirmada</Badge>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Editar reunião"
-                        onClick={() => setEditingMeeting(meeting)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title={meeting.is_cancelled ? 'Reativar reunião' : 'Cancelar reunião'}
-                        onClick={() => handleCancelToggle(meeting)}
-                      >
-                        {meeting.is_cancelled ? (
-                          <RotateCcw className="h-3.5 w-3.5 text-green-600" />
-                        ) : (
-                          <Ban className="h-3.5 w-3.5 text-destructive" />
-                        )}
-                      </Button>
+                      {!readOnly && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Editar reunião"
+                            onClick={() => setEditingMeeting(meeting)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title={meeting.is_cancelled ? 'Reativar reunião' : 'Cancelar reunião'}
+                            onClick={() => handleCancelToggle(meeting)}
+                          >
+                            {meeting.is_cancelled ? (
+                              <RotateCcw className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <Ban className="h-3.5 w-3.5 text-destructive" />
+                            )}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -616,15 +623,17 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
                 <p className="text-sm text-muted-foreground">
                   Nenhuma reunião agendada para os próximos 30 dias.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBulkCreate(true)}
-                  className="flex items-center gap-2"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  Gerar encontros
-                </Button>
+                {!readOnly && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkCreate(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    Gerar encontros
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>

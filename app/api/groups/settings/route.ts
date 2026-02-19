@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { getCurrentLeader } from '@/lib/db/queries';
 import { query } from '@/lib/db/postgres';
+import { canManageSettings, SECRETARY_FORBIDDEN_MESSAGE } from '@/lib/auth/permissions';
 
 /**
  * PUT /api/groups/settings
@@ -17,6 +18,10 @@ export async function PUT(request: Request) {
         { error: 'Líder não está vinculado a um grupo' },
         { status: 400 }
       );
+    }
+
+    if (!canManageSettings(leader.role)) {
+      return NextResponse.json({ error: SECRETARY_FORBIDDEN_MESSAGE }, { status: 403 });
     }
 
     const data = await request.json();

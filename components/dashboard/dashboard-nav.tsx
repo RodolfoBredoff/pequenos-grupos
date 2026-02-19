@@ -11,9 +11,11 @@ import { logout } from '@/app/(dashboard)/actions';
 type DashboardNavProps = {
   groupName: string;
   leaderDisplayName: string;
+  role?: 'leader' | 'secretary';
 };
 
-export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps) {
+export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: DashboardNavProps) {
+  const isSecretary = role === 'secretary';
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
           <p className="text-xs text-muted-foreground mt-2 pl-1 truncate">{groupName}</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-1">
           <LinkButton href="/dashboard" variant="ghost" className="w-full justify-start">
             {mounted ? <Home className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
             Dashboard
@@ -47,18 +49,26 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
             {mounted ? <Calendar className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
             Agenda
           </LinkButton>
-          <LinkButton href="/configuracoes" variant="ghost" className="w-full justify-start">
-            {mounted ? <Settings className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
-            Meu Grupo
-          </LinkButton>
           <LinkButton href="/engajamento" variant="ghost" className="w-full justify-start">
             {mounted ? <TrendingUp className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
             Engajamento
           </LinkButton>
+          {!isSecretary && (
+            <LinkButton href="/configuracoes" variant="ghost" className="w-full justify-start">
+              {mounted ? <Settings className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+              Meu Grupo
+            </LinkButton>
+          )}
         </nav>
 
         <div className="p-4 border-t">
-          <p className="text-sm text-muted-foreground mb-2">{leaderDisplayName}</p>
+          <p className="text-sm text-muted-foreground">{leaderDisplayName}</p>
+          {isSecretary && (
+            <span className="inline-block mt-1 mb-2 px-2 py-0.5 text-xs rounded-full bg-accent/15 text-accent-foreground font-medium">
+              Secretário(a)
+            </span>
+          )}
+          {!isSecretary && <div className="mb-2" />}
           <form action={logout}>
             <Button variant="outline" className="w-full" type="submit">
               {mounted ? <LogOut className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
@@ -75,7 +85,9 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
             { href: '/pessoas', label: 'Pessoas', icon: <Users className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
             { href: '/chamada', label: 'Chamada', icon: <ClipboardCheck className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
             { href: '/agenda', label: 'Agenda', icon: <Calendar className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
-            { href: '/configuracoes', label: 'Meu Grupo', icon: <Settings className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+            isSecretary
+              ? { href: '/engajamento', label: 'Engajamento', icon: <TrendingUp className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' }
+              : { href: '/configuracoes', label: 'Meu Grupo', icon: <Settings className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
           ].map(({ href, label, icon, placeholder: ph }) => (
             <Link
               key={href}

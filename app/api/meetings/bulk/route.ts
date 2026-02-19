@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { getCurrentLeader } from '@/lib/db/queries';
 import { query } from '@/lib/db/postgres';
+import { canManageMeetings, SECRETARY_FORBIDDEN_MESSAGE } from '@/lib/auth/permissions';
 
 /**
  * POST /api/meetings/bulk
@@ -18,6 +19,10 @@ export async function POST(request: Request) {
         { error: 'Líder não está vinculado a um grupo' },
         { status: 400 }
       );
+    }
+
+    if (!canManageMeetings(leader.role)) {
+      return NextResponse.json({ error: SECRETARY_FORBIDDEN_MESSAGE }, { status: 403 });
     }
 
     const data = await request.json();

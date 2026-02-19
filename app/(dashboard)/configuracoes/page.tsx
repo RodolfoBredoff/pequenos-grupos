@@ -1,7 +1,9 @@
+import { redirect } from 'next/navigation';
 import { getCurrentLeader } from '@/lib/db/queries';
-import { queryOne } from '@/lib/db/postgres';
+import { queryOne, queryMany } from '@/lib/db/postgres';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaderGroupSettingsForm } from '@/components/dashboard/leader-group-settings-form';
+import { SecretarySection } from '@/components/configuracoes/secretary-section';
 
 export default async function ConfiguracoesPage() {
   const leader = await getCurrentLeader();
@@ -17,16 +19,36 @@ export default async function ConfiguracoesPage() {
     );
   }
 
-  const group = await queryOne<{
-    id: string;
-    name: string;
-    default_meeting_day: number;
-    default_meeting_time: string;
-  }>(
-    `SELECT id, name, default_meeting_day, default_meeting_time 
-     FROM groups WHERE id = $1`,
-    [leader.group_id]
-  );
+  // Secretários não têm acesso a esta página
+  if (leader.role === 'secretary') {
+    redirect('/dashboard');
+  }
+
+  const [group, secretaries] = await Promise.all([
+    queryOne<{
+      id: string;
+      name: string;
+      default_meeting_day: number;
+      default_meeting_time: string;
+    }>(
+      `SELECT id, name, default_meeting_day, default_meeting_time 
+       FROM groups WHERE id = $1`,
+      [leader.group_id]
+    ),
+    queryMany<{
+      id: string;
+      full_name: string;
+      email: string;
+      phone: string | null;
+      created_at: string;
+    }>(
+      `SELECT id, full_name, email, phone, created_at
+       FROM leaders
+       WHERE group_id = $1 AND role = 'secretary'
+       ORDER BY full_name ASC`,
+      [leader.group_id]
+    ),
+  ]);
 
   if (!group) {
     return (
@@ -42,7 +64,7 @@ export default async function ConfiguracoesPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">Configurações do Grupo</h1>
         <p className="text-muted-foreground">
-          Edite o dia e horário padrão das reuniões do grupo <strong>{group.name}</strong>
+          Gerencie as configurações do grupo <strong>{group.name}</strong>
         </p>
       </div>
 
@@ -57,6 +79,8 @@ export default async function ConfiguracoesPage() {
           />
         </CardContent>
       </Card>
+
+      <SecretarySection initialSecretaries={secretaries} />
     </div>
   );
 }

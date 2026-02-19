@@ -12,6 +12,7 @@ export interface Leader {
   full_name: string;
   email: string;
   phone: string | null;
+  role: 'leader' | 'secretary';
   created_at: string;
 }
 

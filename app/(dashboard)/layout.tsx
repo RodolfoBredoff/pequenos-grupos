@@ -45,6 +45,7 @@ export default async function DashboardLayout({
         <DashboardNav
           groupName={groupName}
           leaderDisplayName={leader?.full_name || user.email || ''}
+          role={leader.role}
         />
 
         {/* Main Content */}
