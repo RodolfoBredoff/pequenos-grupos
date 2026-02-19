@@ -6,7 +6,10 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { calculateAge, formatPhone, isTodayBirthday } from '@/lib/utils';
 import { MEMBER_TYPE_LABELS } from '@/lib/constants';
-import { Pencil, Cake } from 'lucide-react';
+import { Pencil, Cake, AlertTriangle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+type AttendanceStatus = 'present' | 'absent' | 'at-risk';
 
 interface Member {
   id: string;
@@ -18,9 +21,32 @@ interface Member {
 
 interface PessoaCardProps {
   member: Member;
+  attendanceStatus?: AttendanceStatus;
 }
 
-export function PessoaCard({ member }: PessoaCardProps) {
+const attendanceConfig: Record<
+  AttendanceStatus,
+  { label: string; dotClass: string; badgeClass: string; icon?: React.ReactNode }
+> = {
+  present: {
+    label: 'Presente',
+    dotClass: 'bg-status-present',
+    badgeClass: 'bg-status-present/10 text-status-present border-status-present/20',
+  },
+  absent: {
+    label: 'Ausente',
+    dotClass: 'bg-status-absent',
+    badgeClass: 'bg-status-absent/10 text-status-absent border-status-absent/20',
+  },
+  'at-risk': {
+    label: 'Em Risco',
+    dotClass: 'bg-status-risk animate-pulse',
+    badgeClass: 'bg-status-risk/10 text-status-risk border-status-risk/20',
+    icon: <AlertTriangle className="h-3 w-3" />,
+  },
+};
+
+export function PessoaCard({ member, attendanceStatus }: PessoaCardProps) {
   let age: number | null = null;
   if (member.birth_date) {
     try {
@@ -30,34 +56,48 @@ export function PessoaCard({ member }: PessoaCardProps) {
     }
   }
   const isBirthday = isTodayBirthday(member.birth_date);
-  
+  const attendance = attendanceStatus ? attendanceConfig[attendanceStatus] : null;
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg leading-tight mb-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-lg leading-tight mb-2 truncate">
               {member.full_name}
-              {isBirthday && <Cake className="inline-block ml-2 h-4 w-4 text-yellow-500" />}
+              {isBirthday && <Cake className="inline-block ml-2 h-4 w-4 text-amber-500" />}
             </h3>
-            <Badge 
-              variant={member.member_type === 'participant' ? 'default' : 'secondary'}
-              className="mb-2"
-            >
-              {MEMBER_TYPE_LABELS[member.member_type as keyof typeof MEMBER_TYPE_LABELS] ?? member.member_type ?? 'Membro'}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                variant={member.member_type === 'participant' ? 'default' : 'secondary'}
+              >
+                {MEMBER_TYPE_LABELS[member.member_type as keyof typeof MEMBER_TYPE_LABELS] ?? member.member_type ?? 'Membro'}
+              </Badge>
+              {attendance && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border',
+                    attendance.badgeClass
+                  )}
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', attendance.dotClass)} />
+                  {attendance.icon}
+                  {attendance.label}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        
+
         <div className="space-y-1 text-sm text-muted-foreground mb-4">
           <p>{member.phone ? formatPhone(String(member.phone)) : '-'}</p>
           {age !== null && <p>{age} anos</p>}
           {isBirthday && (
-            <p className="text-yellow-600 font-medium">🎂 Aniversariante do dia!</p>
+            <p className="text-amber-600 font-medium">🎂 Aniversariante do dia!</p>
           )}
         </div>
       </CardContent>
-      
+
       <CardFooter className="p-4 pt-0 flex gap-2">
         <WhatsAppButton phone={member.phone} name={member.full_name} className="flex-1" />
         <LinkButton href={`/pessoas/${member.id}`} variant="outline" size="sm" className="flex-1 w-full">

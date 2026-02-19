@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { LinkButton } from '@/components/ui/link-button';
+import { PastoreioLogo } from '@/components/brand/PastoreioLogo';
 import { Home, Users, ClipboardCheck, Calendar, LogOut, TrendingUp, Settings } from 'lucide-react';
 import { logout } from '@/app/(dashboard)/actions';
 
@@ -24,9 +25,9 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
   return (
     <>
       <aside className="hidden lg:flex lg:flex-col lg:w-64 border-r min-h-screen">
-        <div className="p-6 border-b">
-          <h1 className="text-xl font-bold">Pequenos Grupos</h1>
-          <p className="text-sm text-muted-foreground mt-1">{groupName}</p>
+        <div className="p-5 border-b">
+          <PastoreioLogo size={28} showWordmark wordmarkClassName="text-lg" />
+          <p className="text-xs text-muted-foreground mt-2 pl-1 truncate">{groupName}</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -67,28 +68,24 @@ export function DashboardNav({ groupName, leaderDisplayName }: DashboardNavProps
         </div>
       </aside>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-pb">
         <div className="grid grid-cols-5 gap-1 p-2">
-          <Link href="/dashboard" className="flex flex-col items-center py-2">
-            {mounted ? <Home className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
-            <span className="text-xs mt-1">Início</span>
-          </Link>
-          <Link href="/pessoas" className="flex flex-col items-center py-2">
-            {mounted ? <Users className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
-            <span className="text-xs mt-1">Pessoas</span>
-          </Link>
-          <Link href="/chamada" className="flex flex-col items-center py-2">
-            {mounted ? <ClipboardCheck className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
-            <span className="text-xs mt-1">Chamada</span>
-          </Link>
-          <Link href="/agenda" className="flex flex-col items-center py-2">
-            {mounted ? <Calendar className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
-            <span className="text-xs mt-1">Agenda</span>
-          </Link>
-          <Link href="/configuracoes" className="flex flex-col items-center py-2">
-            {mounted ? <Settings className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
-            <span className="text-xs mt-1">Meu Grupo</span>
-          </Link>
+          {[
+            { href: '/dashboard', label: 'Início', icon: <Home className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+            { href: '/pessoas', label: 'Pessoas', icon: <Users className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+            { href: '/chamada', label: 'Chamada', icon: <ClipboardCheck className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+            { href: '/agenda', label: 'Agenda', icon: <Calendar className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+            { href: '/configuracoes', label: 'Meu Grupo', icon: <Settings className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+          ].map(({ href, label, icon, placeholder: ph }) => (
+            <Link
+              key={href}
+              href={href}
+              className="flex flex-col items-center py-2 rounded-lg text-muted-foreground transition-colors hover:text-primary active:text-primary"
+            >
+              {mounted ? icon : iconPlaceholder(ph)}
+              <span className="text-xs mt-1">{label}</span>
+            </Link>
+          ))}
         </div>
       </nav>
     </>
