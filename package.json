@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "setup": "chmod +x install-and-run.sh && ./install-and-run.sh"
+    "setup": "chmod +x install-and-run.sh && ./install-and-run.sh",
+    "icons": "open scripts/generate-icons.html"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.993.0",
