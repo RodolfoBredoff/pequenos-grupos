@@ -19,6 +19,10 @@ export default async function DashboardLayout({
   // Buscar informações do líder
   const leader = await getCurrentLeader();
 
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/(dashboard)/layout.tsx',message:'getCurrentLeader result',data:{leaderFound:!!leader,leaderId:leader?.id ?? null,role:leader?.role ?? null,group_id:leader?.group_id ?? null,userId:user.id},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+  // #endregion
+
   if (!leader) {
     redirect('/api/auth/clear-session?to=/login&reason=no-leader');
   }

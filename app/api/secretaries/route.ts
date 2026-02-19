@@ -115,6 +115,10 @@ export async function POST(request: Request) {
       userId = newUser.id;
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/secretaries/route.ts:POST',message:'About to insert leaders record',data:{userId,normalizedEmail,group_id:leader.group_id,existingUserFound:!!existingUser},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
+
     // Criar registro de secretário
     const secretary = await queryOne(
       `INSERT INTO leaders (id, organization_id, group_id, full_name, email, phone, role)
@@ -122,6 +126,10 @@ export async function POST(request: Request) {
        RETURNING id, full_name, email, phone, role, created_at`,
       [userId, leader.organization_id, leader.group_id, full_name.trim(), normalizedEmail, phone?.trim() || null]
     );
+
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/68b58dbd-8e78-48cd-8fa2-18d1de18a7f6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/secretaries/route.ts:POST',message:'Leaders insert result',data:{secretaryId:(secretary as {id?:string}|null)?.id ?? null,secretaryEmail:(secretary as {email?:string}|null)?.email ?? null},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
 
     return NextResponse.json(secretary, { status: 201 });
   } catch (error) {
