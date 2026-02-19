@@ -79,23 +79,22 @@ export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: 
       </aside>
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-pb">
-        <div className="grid grid-cols-5 gap-1 p-2">
+        <div className="flex overflow-x-auto scrollbar-hide px-1 py-1">
           {[
             { href: '/dashboard', label: 'Início', icon: <Home className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
             { href: '/pessoas', label: 'Pessoas', icon: <Users className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
             { href: '/chamada', label: 'Chamada', icon: <ClipboardCheck className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
             { href: '/agenda', label: 'Agenda', icon: <Calendar className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
-            isSecretary
-              ? { href: '/engajamento', label: 'Engajamento', icon: <TrendingUp className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' }
-              : { href: '/configuracoes', label: 'Meu Grupo', icon: <Settings className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+            { href: '/engajamento', label: 'Engajamento', icon: <TrendingUp className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
+            ...(!isSecretary ? [{ href: '/configuracoes', label: 'Meu Grupo', icon: <Settings className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' }] : []),
           ].map(({ href, label, icon, placeholder: ph }) => (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center py-2 rounded-lg text-muted-foreground transition-colors hover:text-primary active:text-primary"
+              className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary active:text-primary shrink-0"
             >
               {mounted ? icon : iconPlaceholder(ph)}
-              <span className="text-xs mt-1">{label}</span>
+              <span className="text-[10px] mt-1 whitespace-nowrap">{label}</span>
             </Link>
           ))}
         </div>

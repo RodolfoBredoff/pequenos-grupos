@@ -115,10 +115,10 @@ function PeriodSelector({
       <div className="flex items-center gap-2">
         <input
           type="text"
-          placeholder="Filtrar por título do encontro (ex: comunhão)"
+          placeholder="Filtrar por título do encontro"
           value={titleFilter ?? ''}
           onChange={(e) => onTitleFilterChange(e.target.value)}
-          className="flex h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 py-1 text-sm"
+          className="flex h-9 w-full sm:max-w-xs rounded-md border border-input bg-background px-3 py-1 text-sm"
         />
       </div>
     )}
@@ -223,24 +223,24 @@ function PeriodCharts({
       {/* Gráfico de linha – taxa de presença */}
       <Card>
         <CardHeader>
-          <CardTitle>Taxa de Presença — {periodLabel}</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Taxa de Presença — {periodLabel}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data}>
+        <CardContent className="px-2 sm:px-6">
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-              <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="period" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+              <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 10 }} width={40} />
               <Tooltip formatter={(v: number) => `${v}%`} />
-              <Legend />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
               <Line
                 type="monotone"
                 dataKey="taxa"
-                stroke="#4f46e5"
+                stroke="hsl(145, 55%, 30%)"
                 strokeWidth={2}
                 name="Taxa (%)"
-                dot={{ fill: '#4f46e5', r: 4 }}
-                activeDot={{ r: 6 }}
+                dot={{ fill: 'hsl(145, 55%, 30%)', r: 3 }}
+                activeDot={{ r: 5 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -250,16 +250,16 @@ function PeriodCharts({
       {/* Gráfico de barras – presentes vs ausentes */}
       <Card>
         <CardHeader>
-          <CardTitle>Presentes × Ausentes — {periodLabel}</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Presentes × Ausentes — {periodLabel}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={data}>
+        <CardContent className="px-2 sm:px-6">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <XAxis dataKey="period" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 10 }} width={40} />
               <Tooltip />
-              <Legend />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="presentes" fill="#10b981" name="Presentes" radius={[3, 3, 0, 0]} />
               <Bar dataKey="ausentes" fill="#ef4444" name="Ausentes" radius={[3, 3, 0, 0]} />
             </BarChart>
@@ -645,8 +645,8 @@ export function EngagementClient({ groupId }: EngagementClientProps = {}) {
       {/* Header e seletor */}
       <div className="space-y-3">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard de Engajamento</h1>
-          <p className="text-muted-foreground mt-1">Análise de presença por período ou encontro</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Engajamento</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Análise de presença por período ou encontro</p>
         </div>
         <PeriodSelector
           selected={view}
