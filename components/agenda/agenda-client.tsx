@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, Clock, Pencil, Settings, Ban, RotateCcw, PlusCircle, Star, CalendarPlus, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Pencil, Settings, Ban, RotateCcw, PlusCircle, Star, CalendarPlus, Trash2, Users } from 'lucide-react';
 import { formatDate, getDayOfWeekName } from '@/lib/utils';
 
 // ============================================================
@@ -43,10 +44,16 @@ interface GroupSettings {
   default_meeting_time: string;
 }
 
+interface Member {
+  id: string;
+  full_name: string;
+}
+
 interface AgendaClientProps {
   meetings: Meeting[];
   pastMeetings: MeetingWithCount[];
   group: GroupSettings;
+  members?: Member[];
   readOnly?: boolean;
   canEdit?: boolean;
   canSettings?: boolean;
@@ -65,12 +72,14 @@ function toInputDate(val: string | Date | null | undefined): string {
 function EditMeetingDialog({
   meeting,
   defaultTime,
+  members,
   open,
   onOpenChange,
   onSave,
 }: {
   meeting: Meeting;
   defaultTime: string;
+  members: Member[];
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSave: (updated?: Partial<Meeting>) => void;
@@ -80,26 +89,51 @@ function EditMeetingDialog({
   const [title, setTitle] = useState(meeting.title ?? '');
   const [notes, setNotes] = useState(meeting.notes ?? '');
   const [meetingType, setMeetingType] = useState<'regular' | 'special_event'>(meeting.meeting_type ?? 'regular');
+  const [presenceMap, setPresenceMap] = useState<Record<string, boolean>>({});
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
 
   useEffect(() => {
-    if (meeting) {
-      setDate(toInputDate(meeting.meeting_date));
-      setTime(meeting.meeting_time ?? defaultTime);
-      setTitle(meeting.title ?? '');
-      setNotes(meeting.notes ?? '');
-      setMeetingType(meeting.meeting_type ?? 'regular');
+    if (!open) return;
+    setDate(toInputDate(meeting.meeting_date));
+    setTime(meeting.meeting_time ?? defaultTime);
+    setTitle(meeting.title ?? '');
+    setNotes(meeting.notes ?? '');
+    setMeetingType(meeting.meeting_type ?? 'regular');
+
+    if (members.length > 0) {
+      setLoadingAttendance(true);
+      fetch(`/api/attendance?meeting_id=${meeting.id}`)
+        .then((res) => res.ok ? res.json() : [])
+        .then((data: Array<{ member_id: string; is_present: boolean }>) => {
+          const map: Record<string, boolean> = {};
+          for (const member of members) map[member.id] = false;
+          for (const att of data) map[att.member_id] = att.is_present;
+          setPresenceMap(map);
+        })
+        .catch(() => {
+          const map: Record<string, boolean> = {};
+          for (const member of members) map[member.id] = false;
+          setPresenceMap(map);
+        })
+        .finally(() => setLoadingAttendance(false));
     }
-  }, [meeting?.id, meeting?.meeting_date, meeting?.meeting_time, meeting?.title, meeting?.notes, meeting?.meeting_type, defaultTime]);
+  }, [open, meeting.id]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const togglePresence = (memberId: string) => {
+    setPresenceMap((prev) => ({ ...prev, [memberId]: !prev[memberId] }));
+  };
+
+  const presentCount = Object.values(presenceMap).filter(Boolean).length;
 
   const handleSave = async () => {
     if (!date) { setError('A data é obrigatória'); return; }
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`/api/meetings/${meeting.id}`, {
+      const meetingRes = await fetch(`/api/meetings/${meeting.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,7 +144,21 @@ function EditMeetingDialog({
           meeting_type: meetingType,
         }),
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erro ao salvar'); }
+      if (!meetingRes.ok) { const d = await meetingRes.json(); throw new Error(d.error || 'Erro ao salvar'); }
+
+      if (members.length > 0) {
+        const attendanceData = members.map((m) => ({
+          member_id: m.id,
+          is_present: presenceMap[m.id] ?? false,
+        }));
+        const attRes = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ meeting_id: meeting.id, attendance: attendanceData }),
+        });
+        if (!attRes.ok) { const d = await attRes.json(); throw new Error(d.error || 'Erro ao salvar presenças'); }
+      }
+
       onSave({ meeting_date: date, meeting_time: time || null, title: title || null, notes: notes || null, meeting_type: meetingType });
       onOpenChange(false);
     } catch (e) {
@@ -122,11 +170,11 @@ function EditMeetingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Editar Encontro</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
           {error && <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>}
           <div className="space-y-2">
             <Label htmlFor="edit-type">Tipo de Encontro</Label>
@@ -153,8 +201,44 @@ function EditMeetingDialog({
             <Label htmlFor="meeting-notes">Observações (opcional)</Label>
             <Input id="meeting-notes" placeholder="Outras anotações..." value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
+
+          {members.length > 0 && (
+            <div className="space-y-3 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Presença
+                </Label>
+                {!loadingAttendance && (
+                  <span className="text-xs text-muted-foreground">
+                    {presentCount} de {members.length} presentes
+                  </span>
+                )}
+              </div>
+              {loadingAttendance ? (
+                <p className="text-sm text-muted-foreground">Carregando presenças...</p>
+              ) : (
+                <div className="space-y-2 max-h-52 overflow-y-auto rounded-md border p-2">
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer"
+                      onClick={() => togglePresence(member.id)}
+                    >
+                      <Checkbox
+                        checked={presenceMap[member.id] ?? false}
+                        onCheckedChange={() => togglePresence(member.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span className="text-sm">{member.full_name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="pt-2 border-t">
           <DialogClose asChild><Button variant="outline" disabled={loading}>Cancelar</Button></DialogClose>
           <Button onClick={handleSave} disabled={loading}>{loading ? 'Salvando...' : 'Salvar'}</Button>
         </DialogFooter>
@@ -475,6 +559,7 @@ export function AgendaClient({
   meetings: initialMeetings,
   pastMeetings,
   group: initialGroup,
+  members = [],
   readOnly = false,
   canEdit,
   canSettings,
@@ -483,6 +568,7 @@ export function AgendaClient({
   const [, startTransition] = useTransition();
 
   const [meetings, setMeetings] = useState(initialMeetings);
+  const [localPastMeetings, setLocalPastMeetings] = useState(pastMeetings);
   const [group, setGroup] = useState(initialGroup);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
@@ -495,8 +581,9 @@ export function AgendaClient({
 
   useEffect(() => {
     setMeetings(initialMeetings);
+    setLocalPastMeetings(pastMeetings);
     setGroup(initialGroup);
-  }, [initialMeetings, initialGroup]);
+  }, [initialMeetings, pastMeetings, initialGroup]);
 
   const refresh = () => { startTransition(() => { router.refresh(); }); };
 
@@ -522,6 +609,7 @@ export function AgendaClient({
       const res = await fetch(`/api/meetings/${meeting.id}`, { method: 'DELETE' });
       if (res.ok) {
         setMeetings((prev) => prev.filter((m) => m.id !== meeting.id));
+        setLocalPastMeetings((prev) => prev.filter((m) => m.id !== meeting.id));
         refresh();
       }
     } catch (e) {
@@ -657,20 +745,20 @@ export function AgendaClient({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {pastMeetings && pastMeetings.length > 0 ? (
+            {localPastMeetings && localPastMeetings.length > 0 ? (
               <div className="space-y-3">
-                {pastMeetings.map((meeting) => (
-                  <div key={meeting.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="flex items-center gap-2">
+                {localPastMeetings.map((meeting) => (
+                  <div key={meeting.id} className="flex items-center justify-between p-3 border rounded-lg gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {meeting.meeting_type === 'special_event' && (
-                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200 shrink-0">
                             <Star className="h-3 w-3 mr-1" />
                             Especial
                           </Badge>
                         )}
                         {meeting.title && (
-                          <p className="font-semibold text-sm">{meeting.title}</p>
+                          <p className="font-semibold text-sm truncate">{meeting.title}</p>
                         )}
                       </div>
                       <p className={meeting.title ? 'text-sm text-muted-foreground' : 'font-medium'}>
@@ -685,7 +773,21 @@ export function AgendaClient({
                         </p>
                       )}
                     </div>
-                    {meeting.is_cancelled && <Badge variant="outline">Folga</Badge>}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {meeting.is_cancelled && <Badge variant="outline">Folga</Badge>}
+                      {canEditMeetings && (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar encontro"
+                            onClick={() => setEditingMeeting(meeting)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Remover encontro"
+                            onClick={() => handleDelete(meeting)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -701,6 +803,7 @@ export function AgendaClient({
         <EditMeetingDialog
           meeting={editingMeeting}
           defaultTime={group.default_meeting_time.substring(0, 5)}
+          members={members}
           open={!!editingMeeting}
           onOpenChange={(v) => !v && setEditingMeeting(null)}
           onSave={(updated) => {

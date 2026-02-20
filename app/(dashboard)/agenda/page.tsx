@@ -9,8 +9,8 @@ export default async function AgendaPage() {
     return <div>Grupo não encontrado.</div>;
   }
 
-  // Buscar configuração do grupo e reuniões em paralelo
-  const [group, meetings, pastMeetings] = await Promise.all([
+  // Buscar configuração do grupo, reuniões e membros em paralelo
+  const [group, meetings, pastMeetings, members] = await Promise.all([
 
     queryOne<{ default_meeting_day: number; default_meeting_time: string }>(
       `SELECT default_meeting_day, default_meeting_time FROM groups WHERE id = $1`,
@@ -63,6 +63,11 @@ export default async function AgendaPage() {
        LIMIT 10`,
       [leader.group_id]
     ),
+    // Membros do grupo para edição de presença
+    queryMany<{ id: string; full_name: string }>(
+      `SELECT id, full_name FROM members WHERE group_id = $1 AND is_active = TRUE ORDER BY full_name ASC`,
+      [leader.group_id]
+    ),
   ]);
 
   if (!group) {
@@ -82,6 +87,7 @@ export default async function AgendaPage() {
       meetings={meetings}
       pastMeetings={pastMeetingsWithAttendance}
       group={group}
+      members={members}
       readOnly={false}
       canEdit={true}
       canSettings={canSettings}
