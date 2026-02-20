@@ -28,6 +28,7 @@ interface UpcomingBirthday {
   full_name: string;
   birth_date: string;
   member_type: string;
+  phone: string | null;
 }
 
 interface AbsentMember {
@@ -51,6 +52,27 @@ function buildWhatsAppLink(phone: string | null, name: string, absences: number)
   const message = encodeURIComponent(
     `Olá ${name}! Estamos sentindo sua falta nos nossos encontros. Já faz ${absences} encontro${absences !== 1 ? 's' : ''} que você não aparece. Esperamos você em breve! 💙`
   );
+  return `https://wa.me/${fullNumber}?text=${message}`;
+}
+
+const BIRTHDAY_MESSAGES = [
+  (name: string) => `🎉 Feliz aniversário, ${name}! Que este dia seja repleto de alegria e bênçãos. Que Deus continue abençoando sua vida! 🙏✨`,
+  (name: string) => `🎂 Parabéns, ${name}! Hoje é um dia especial para celebrar você. Desejamos muita felicidade e que todos os seus sonhos se realizem! 💙🎈`,
+  (name: string) => `🎊 ${name}, feliz aniversário! Que este novo ano de vida seja marcado pela presença de Deus e por momentos inesquecíveis. Abraços! 🙌❤️`,
+  (name: string) => `🎁 Parabéns pelo seu dia, ${name}! Que você seja cercado de pessoas queridas e que este novo ciclo traga muitas conquistas. Deus te abençoe! 🌟`,
+  (name: string) => `🎈 Feliz aniversário, ${name}! Hoje celebramos você e toda a alegria que você traz para nossas vidas. Que este dia seja especial! 💐🎉`,
+  (name: string) => `🎊 ${name}, parabéns! Que este novo ano seja repleto de saúde, paz e realizações. Estamos felizes por ter você conosco! 🙏💙`,
+  (name: string) => `🎂 Hoje é seu dia especial, ${name}! Desejamos que você seja muito feliz e que todos os seus planos se realizem. Feliz aniversário! ✨🎈`,
+  (name: string) => `🎉 Parabéns, ${name}! Que Deus continue abençoando sua vida e que você tenha muitos motivos para sorrir hoje e sempre! 🙌❤️`,
+];
+
+function buildBirthdayWhatsAppLink(phone: string | null, name: string): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  const fullNumber = digits.startsWith('55') ? digits : `55${digits}`;
+  const firstName = name.split(' ')[0];
+  const randomMessage = BIRTHDAY_MESSAGES[Math.floor(Math.random() * BIRTHDAY_MESSAGES.length)](firstName);
+  const message = encodeURIComponent(randomMessage);
   return `https://wa.me/${fullNumber}?text=${message}`;
 }
 
@@ -171,13 +193,14 @@ export function AlertsPanel({
             <div className="space-y-2">
               {upcomingBirthdays.map((person) => {
                 const isToday = isTodayBirthday(person.birth_date);
+                const waLink = buildBirthdayWhatsAppLink(person.phone, person.full_name);
                 return (
                   <div key={person.id}
                     className={`flex items-center justify-between p-3 rounded-lg border ${isToday ? 'bg-yellow-50 border-yellow-200' : 'bg-background'}`}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <Cake className={`h-4 w-4 shrink-0 ${isToday ? 'text-yellow-500' : 'text-muted-foreground'}`} />
-                      <div>
-                        <p className="text-sm font-medium">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
                           {person.full_name}
                           {isToday && <span className="ml-2 text-yellow-600">🎉 Hoje!</span>}
                         </p>
@@ -191,9 +214,18 @@ export function AlertsPanel({
                         </p>
                       </div>
                     </div>
-                    <Badge variant={person.member_type === 'participant' ? 'default' : 'secondary'} className="text-xs shrink-0">
-                      {person.member_type === 'participant' ? 'Participante' : 'Visitante'}
-                    </Badge>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <Badge variant={person.member_type === 'participant' ? 'default' : 'secondary'} className="text-xs">
+                        {person.member_type === 'participant' ? 'Participante' : 'Visitante'}
+                      </Badge>
+                      {waLink && (
+                        <a href={waLink} target="_blank" rel="noopener noreferrer">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" title="Enviar mensagem de aniversário no WhatsApp">
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 );
               })}

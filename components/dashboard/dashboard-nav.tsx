@@ -95,10 +95,10 @@ export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: 
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary active:text-primary shrink-0"
+              className="flex flex-col items-center justify-center py-2 px-3 min-w-[70px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary hover:bg-accent active:text-primary shrink-0"
             >
               {mounted ? icon : iconPlaceholder(ph)}
-              <span className="text-[10px] mt-1 whitespace-nowrap">{label}</span>
+              <span className="text-[11px] font-medium mt-1 whitespace-nowrap">{label}</span>
             </Link>
           ))}
           <form action={logout} className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 shrink-0">

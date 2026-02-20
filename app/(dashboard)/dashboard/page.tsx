@@ -54,10 +54,10 @@ export default async function DashboardPage() {
   }
 
   // Buscar próximos aniversariantes ordenados por proximidade do aniversário
-  let upcomingBirthdays: Array<{ id: string; full_name: string; birth_date: string; member_type: string }> = [];
+  let upcomingBirthdays: Array<{ id: string; full_name: string; birth_date: string; member_type: string; phone: string | null }> = [];
   try {
-    upcomingBirthdays = await queryMany<{ id: string; full_name: string; birth_date: string; member_type: string }>(
-      `SELECT id, full_name, birth_date, member_type
+    upcomingBirthdays = await queryMany<{ id: string; full_name: string; birth_date: string; member_type: string; phone: string | null }>(
+      `SELECT id, full_name, birth_date, member_type, phone
        FROM members
        WHERE group_id = $1
          AND is_active = TRUE

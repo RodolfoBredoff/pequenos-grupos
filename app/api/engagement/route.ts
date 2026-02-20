@@ -69,7 +69,25 @@ export async function GET(request: Request) {
     const titleGroup = searchParams.get('title_group')?.trim() || null;
 
     let groupId: string | null = leader?.group_id ?? null;
-    if (groupIdParam) {
+    let isCoordinator = false;
+    
+    // Coordenadores podem filtrar por qualquer grupo da organização
+    if (leader?.role === 'coordinator') {
+      isCoordinator = true;
+      if (groupIdParam) {
+        // Verificar se o grupo pertence à organização do coordenador
+        const group = await queryOne<{ id: string; organization_id: string }>(
+          `SELECT id, organization_id FROM groups WHERE id = $1`,
+          [groupIdParam]
+        );
+        if (group && group.organization_id === leader.organization_id) {
+          groupId = groupIdParam;
+        } else {
+          return NextResponse.json({ error: 'Grupo não encontrado ou não pertence à sua organização' }, { status: 403 });
+        }
+      }
+    } else if (groupIdParam) {
+      // Admins também podem filtrar por grupo
       const { getAdminSession } = await import('@/lib/auth/admin-session');
       const admin = await getAdminSession();
       if (admin) {
@@ -78,20 +96,23 @@ export async function GET(request: Request) {
     }
 
     if (!groupId) {
+      if (isCoordinator) {
+        return NextResponse.json({ error: 'Selecione um grupo para visualizar os dados de engajamento' }, { status: 400 });
+      }
       return NextResponse.json({ error: 'Líder não vinculado a um grupo' }, { status: 400 });
     }
 
     // ─── Modo: lista de títulos agrupados ──────────────────────────────────
     if (mode === 'title_groups') {
       const titleGroups = await queryMany<{ title: string; count: number; latest_date: string }>(
-        `SELECT title, COUNT(*)::int as count, MAX(meeting_date)::text as latest_date
+        `SELECT TRIM(title) as title, COUNT(*)::int as count, MAX(meeting_date)::text as latest_date
          FROM meetings
          WHERE group_id = $1
            AND title IS NOT NULL
-           AND title <> ''
+           AND TRIM(title) <> ''
            AND is_cancelled = FALSE
            AND meeting_date <= CURRENT_DATE
-         GROUP BY title
+         GROUP BY TRIM(title)
          HAVING COUNT(*) > 0
          ORDER BY MAX(meeting_date) DESC`,
         [groupId]
@@ -101,6 +122,7 @@ export async function GET(request: Request) {
 
     // ─── Modo: agregar por nome de encontro específico ─────────────────────
     if (titleGroup) {
+      const trimmedTitle = titleGroup.trim();
       const meetings = await queryMany<{
         id: string;
         meeting_date: string;
@@ -111,11 +133,11 @@ export async function GET(request: Request) {
         `SELECT id, meeting_date, title, meeting_time, meeting_type
          FROM meetings
          WHERE group_id = $1
-           AND LOWER(title) = LOWER($2)
+           AND LOWER(TRIM(title)) = LOWER(TRIM($2))
            AND is_cancelled = FALSE
            AND meeting_date <= CURRENT_DATE
          ORDER BY meeting_date DESC`,
-        [groupId, titleGroup]
+        [groupId, trimmedTitle]
       );
 
       if (meetings.length === 0) {

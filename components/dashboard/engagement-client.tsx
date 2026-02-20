@@ -443,11 +443,26 @@ function TitleGroupView({ groupId }: { groupId?: string | null }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
+    setLoadingGroups(true);
     let url = '/api/engagement?mode=title_groups';
     if (groupId) url += `&group_id=${groupId}`;
     fetch(url)
-      .then((r) => r.ok ? r.json() : { titleGroups: [] })
-      .then((d) => { setTitleGroups(d.titleGroups ?? []); setLoadingGroups(false); });
+      .then((r) => {
+        if (!r.ok) {
+          console.error('Erro ao buscar títulos:', r.status, r.statusText);
+          return { titleGroups: [] };
+        }
+        return r.json();
+      })
+      .then((d) => {
+        setTitleGroups(d.titleGroups ?? []);
+        setLoadingGroups(false);
+      })
+      .catch((err) => {
+        console.error('Erro ao buscar títulos de encontros:', err);
+        setTitleGroups([]);
+        setLoadingGroups(false);
+      });
   }, [groupId]);
 
   const fetchGroupDetail = useCallback(async (title: string) => {
@@ -457,8 +472,21 @@ function TitleGroupView({ groupId }: { groupId?: string | null }) {
       let url = `/api/engagement?title_group=${encodeURIComponent(title)}`;
       if (groupId) url += `&group_id=${groupId}`;
       const res = await fetch(url);
-      if (res.ok) setGroupDetail(await res.json());
-    } finally { setLoadingDetail(false); }
+      if (!res.ok) {
+        console.error('Erro ao buscar detalhes do título:', res.status, res.statusText);
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Detalhes do erro:', errorData);
+        setGroupDetail(null);
+        return;
+      }
+      const data = await res.json();
+      setGroupDetail(data);
+    } catch (err) {
+      console.error('Erro ao buscar detalhes do título de encontro:', err);
+      setGroupDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
   }, [groupId]);
 
   if (loadingGroups) {

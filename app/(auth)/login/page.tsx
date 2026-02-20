@@ -6,13 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2, Mail, Lock } from 'lucide-react';
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const reason = useMemo(() => searchParams.get('reason'), [searchParams]);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [passwordLoggedIn, setPasswordLoggedIn] = useState(false);
   const [sent, setSent] = useState(false);
   const [magicLinkUrl, setMagicLinkUrl] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -22,8 +25,39 @@ function LoginForm() {
     setMounted(true);
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setLoginError(null);
+
+    try {
+      const response = await fetch('/api/auth/password-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setLoginError(data.error || 'E-mail ou senha incorretos');
+        return;
+      }
+
+      setPasswordLoggedIn(true);
+      // Após login com senha, gerar magic link automaticamente
+      await handleMagicLink();
+    } catch (error: unknown) {
+      console.error('Login error:', error);
+      setLoginError('Erro ao processar solicitação. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
     setLoading(true);
     setMagicLinkUrl(null);
     setLoginError(null);
@@ -52,8 +86,8 @@ function LoginForm() {
 
       setSent(true);
     } catch (error: unknown) {
-      console.error('Login error:', error);
-      setLoginError('Erro ao processar solicitação. Tente novamente.');
+      console.error('Magic link error:', error);
+      setLoginError('Erro ao gerar link de acesso. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -129,7 +163,7 @@ function LoginForm() {
             {loginError}
           </p>
         )}
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handlePasswordLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
             <Input
@@ -139,22 +173,55 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={loading}
+              disabled={loading || passwordLoggedIn}
             />
           </div>
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? (
-              <>
-                {mounted ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <span className="mr-2 inline-block h-4 w-4" />}
-                Enviando...
-              </>
-            ) : (
-              <>
-                {mounted ? <Mail className="mr-2 h-4 w-4" /> : <span className="mr-2 inline-block h-4 w-4" />}
-                Enviar Link de Acesso
-              </>
-            )}
-          </Button>
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Digite sua senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading || passwordLoggedIn}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                disabled={loading || passwordLoggedIn}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              É necessário fazer login com senha para gerar o link de acesso.
+            </p>
+          </div>
+          {!passwordLoggedIn ? (
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? (
+                <>
+                  {mounted ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <span className="mr-2 inline-block h-4 w-4" />}
+                  Entrando...
+                </>
+              ) : (
+                <>
+                  {mounted ? <Lock className="mr-2 h-4 w-4" /> : <span className="mr-2 inline-block h-4 w-4" />}
+                  Entrar com Senha
+                </>
+              )}
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-2">
+                ✓ Login realizado! Gerando link de acesso...
+              </p>
+            </div>
+          )}
         </form>
       </CardContent>
     </Card>

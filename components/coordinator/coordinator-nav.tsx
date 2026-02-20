@@ -23,10 +23,10 @@ export function CoordinatorNav({ orgName, coordinatorName }: CoordinatorNavProps
   const iconPlaceholder = (className: string) => <span className={className} aria-hidden />;
 
   const navItems = [
-    { href: '/org/dashboard', label: 'Dashboard', icon: <Home className="mr-2 h-4 w-4" />, ph: 'mr-2 inline-block h-4 w-4' },
-    { href: '/org/grupos', label: 'Grupos', icon: <Group className="mr-2 h-4 w-4" />, ph: 'mr-2 inline-block h-4 w-4' },
-    { href: '/org/lideres', label: 'Líderes', icon: <Users className="mr-2 h-4 w-4" />, ph: 'mr-2 inline-block h-4 w-4' },
-    { href: '/org/engajamento', label: 'Engajamento', icon: <TrendingUp className="mr-2 h-4 w-4" />, ph: 'mr-2 inline-block h-4 w-4' },
+    { href: '/org/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" />, ph: 'h-5 w-5 inline-block' },
+    { href: '/org/grupos', label: 'Grupos', icon: <Group className="h-5 w-5" />, ph: 'h-5 w-5 inline-block' },
+    { href: '/org/lideres', label: 'Líderes', icon: <Users className="h-5 w-5" />, ph: 'h-5 w-5 inline-block' },
+    { href: '/org/engajamento', label: 'Engajamento', icon: <TrendingUp className="h-5 w-5" />, ph: 'h-5 w-5 inline-block' },
   ];
 
   return (
@@ -69,13 +69,14 @@ export function CoordinatorNav({ orgName, coordinatorName }: CoordinatorNavProps
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-pb">
         <div className="flex overflow-x-auto scrollbar-hide px-1 py-1">
-          {navItems.map(({ href, label }) => (
+          {navItems.map(({ href, label, icon, ph }) => (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary active:text-primary shrink-0"
+              className="flex flex-col items-center justify-center py-2 px-3 min-w-[70px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary hover:bg-accent active:text-primary shrink-0"
             >
-              <span className="text-[10px] mt-1 whitespace-nowrap">{label}</span>
+              {mounted ? icon : iconPlaceholder(ph)}
+              <span className="text-[11px] font-medium mt-1 whitespace-nowrap">{label}</span>
             </Link>
           ))}
           <Link
