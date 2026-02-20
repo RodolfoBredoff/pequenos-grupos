@@ -53,6 +53,8 @@ function formatPeriodLabel(dateStr: string, period: Period): string {
  *  2. ?meeting_id=uuid                                    → presença detalhada de um encontro
  *  3. ?group_id=uuid (admin)                              → dados de um grupo específico
  *  4. ?title_filter=texto                                 → filtrar encontros por título (com outros filtros)
+ *  5. ?mode=title_groups                                  → lista títulos distintos para o seletor
+ *  6. ?title_group=texto                                  → agrega todos os encontros com aquele título exato
  */
 export async function GET(request: Request) {
   try {
@@ -63,6 +65,8 @@ export async function GET(request: Request) {
     const meetingId = searchParams.get('meeting_id');
     const groupIdParam = searchParams.get('group_id');
     const titleFilter = searchParams.get('title_filter')?.trim() || null;
+    const mode = searchParams.get('mode');
+    const titleGroup = searchParams.get('title_group')?.trim() || null;
 
     let groupId: string | null = leader?.group_id ?? null;
     if (groupIdParam) {
@@ -75,6 +79,107 @@ export async function GET(request: Request) {
 
     if (!groupId) {
       return NextResponse.json({ error: 'Líder não vinculado a um grupo' }, { status: 400 });
+    }
+
+    // ─── Modo: lista de títulos agrupados ──────────────────────────────────
+    if (mode === 'title_groups') {
+      const titleGroups = await queryMany<{ title: string; count: number; latest_date: string }>(
+        `SELECT title, COUNT(*)::int as count, MAX(meeting_date)::text as latest_date
+         FROM meetings
+         WHERE group_id = $1
+           AND title IS NOT NULL
+           AND title <> ''
+           AND is_cancelled = FALSE
+           AND meeting_date <= CURRENT_DATE
+         GROUP BY title
+         HAVING COUNT(*) > 0
+         ORDER BY MAX(meeting_date) DESC`,
+        [groupId]
+      );
+      return NextResponse.json({ mode: 'title_groups', titleGroups });
+    }
+
+    // ─── Modo: agregar por nome de encontro específico ─────────────────────
+    if (titleGroup) {
+      const meetings = await queryMany<{
+        id: string;
+        meeting_date: string;
+        title: string | null;
+        meeting_time: string | null;
+        meeting_type: string;
+      }>(
+        `SELECT id, meeting_date, title, meeting_time, meeting_type
+         FROM meetings
+         WHERE group_id = $1
+           AND LOWER(title) = LOWER($2)
+           AND is_cancelled = FALSE
+           AND meeting_date <= CURRENT_DATE
+         ORDER BY meeting_date DESC`,
+        [groupId, titleGroup]
+      );
+
+      if (meetings.length === 0) {
+        return NextResponse.json({
+          mode: 'title_group',
+          title: titleGroup,
+          meetings: [],
+          memberStats: [],
+          summary: { total: 0, totalPresent: 0, totalAbsent: 0, avgRate: 0 },
+        });
+      }
+
+      const meetingIds = meetings.map((m) => m.id);
+
+      const attendance = await queryMany<{
+        meeting_id: string;
+        member_id: string;
+        member_name: string;
+        member_type: string;
+        is_present: boolean;
+      }>(
+        `SELECT a.meeting_id, a.member_id, m.full_name as member_name, m.member_type, a.is_present
+         FROM attendance a
+         JOIN members m ON m.id = a.member_id
+         WHERE a.meeting_id = ANY($1::uuid[])`,
+        [meetingIds]
+      );
+
+      // Aggregate stats per member
+      const memberMap = new Map<string, { name: string; type: string; presences: number; absences: number }>();
+      for (const att of attendance) {
+        if (!memberMap.has(att.member_id)) {
+          memberMap.set(att.member_id, { name: att.member_name, type: att.member_type, presences: 0, absences: 0 });
+        }
+        if (att.is_present) memberMap.get(att.member_id)!.presences++;
+        else memberMap.get(att.member_id)!.absences++;
+      }
+
+      const memberStats = Array.from(memberMap.values())
+        .map((m) => ({ ...m, taxa: m.presences + m.absences > 0 ? Math.round((m.presences / (m.presences + m.absences)) * 100) : 0 }))
+        .sort((a, b) => b.presences - a.presences);
+
+      const totalPresent = attendance.filter((a) => a.is_present).length;
+      const totalAbsent = attendance.filter((a) => !a.is_present).length;
+
+      return NextResponse.json({
+        mode: 'title_group',
+        title: titleGroup,
+        meetings: meetings.map((m) => ({
+          id: m.id,
+          meeting_date: m.meeting_date,
+          title: m.title,
+          meeting_time: m.meeting_time,
+          meeting_type: m.meeting_type,
+          label: `${m.title ?? ''} — ${new Date(m.meeting_date + 'T12:00:00Z').toLocaleDateString('pt-BR')}`,
+        })),
+        memberStats,
+        summary: {
+          total: attendance.length,
+          totalPresent,
+          totalAbsent,
+          avgRate: attendance.length > 0 ? Math.round((totalPresent / attendance.length) * 100) : 0,
+        },
+      });
     }
 
     // ─── Modo: encontro específico ─────────────────────────────────────────
@@ -150,13 +255,13 @@ export async function GET(request: Request) {
       : [truncate, groupId, interval, ...(titleFilter ? [`%${titleFilter}%`] : [])];
 
     const meetingsQuery = effectivePeriod === 'semiannual'
-      ? `SELECT id, meeting_date, title, ${periodStartExpr} as period_start
+      ? `SELECT id, meeting_date, title, meeting_type, ${periodStartExpr} as period_start
          FROM meetings 
          WHERE group_id = $1 AND is_cancelled = FALSE
            AND meeting_date >= (CURRENT_DATE - $2::interval)
            AND meeting_date <= CURRENT_DATE${titleCond}
          ORDER BY meeting_date ASC`
-      : `SELECT id, meeting_date, title, ${periodStartExpr} as period_start
+      : `SELECT id, meeting_date, title, meeting_type, ${periodStartExpr} as period_start
          FROM meetings 
          WHERE group_id = $2 AND is_cancelled = FALSE
            AND meeting_date >= (CURRENT_DATE - $3::interval)
@@ -167,6 +272,7 @@ export async function GET(request: Request) {
       id: string;
       meeting_date: string;
       title: string | null;
+      meeting_type: string;
       period_start: string;
     }>(meetingsQuery, queryParams as string[]);
 
@@ -266,6 +372,7 @@ export async function GET(request: Request) {
       id: m.id,
       meeting_date: m.meeting_date,
       title: m.title,
+      meeting_type: (m as { meeting_type?: string }).meeting_type ?? 'regular',
       label: m.title
         ? `${m.title} — ${new Date(m.meeting_date + 'T12:00:00Z').toLocaleDateString('pt-BR')}`
         : new Date(m.meeting_date + 'T12:00:00Z').toLocaleDateString('pt-BR'),

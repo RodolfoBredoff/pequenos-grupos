@@ -25,9 +25,10 @@ export default async function AgendaPage() {
       is_cancelled: boolean;
       title: string | null;
       notes: string | null;
+      meeting_type: 'regular' | 'special_event';
       created_at: string;
     }>(
-      `SELECT id, group_id, meeting_date, meeting_time, is_cancelled, title, notes, created_at
+      `SELECT id, group_id, meeting_date, meeting_time, is_cancelled, title, notes, meeting_type, created_at
        FROM meetings 
        WHERE group_id = $1 
        AND meeting_date >= CURRENT_DATE
@@ -45,18 +46,19 @@ export default async function AgendaPage() {
       is_cancelled: boolean;
       title: string | null;
       notes: string | null;
+      meeting_type: 'regular' | 'special_event';
       created_at: string;
       attendance_count: number;
     }>(
       `SELECT 
          m.id, m.group_id, m.meeting_date, m.meeting_time, m.is_cancelled, 
-         m.title, m.notes, m.created_at,
+         m.title, m.notes, m.meeting_type, m.created_at,
          COUNT(a.id)::int as attendance_count
        FROM meetings m
        LEFT JOIN attendance a ON a.meeting_id = m.id
        WHERE m.group_id = $1 AND m.meeting_date < CURRENT_DATE
        GROUP BY m.id, m.group_id, m.meeting_date, m.meeting_time, m.is_cancelled,
-                m.title, m.notes, m.created_at
+                m.title, m.notes, m.meeting_type, m.created_at
        ORDER BY m.meeting_date DESC
        LIMIT 10`,
       [leader.group_id]
@@ -72,12 +74,17 @@ export default async function AgendaPage() {
     attendanceCount: m.attendance_count,
   }));
 
+  // Both leaders and secretaries can edit meetings; only leader manages group settings
+  const canSettings = leader.role !== 'secretary';
+
   return (
     <AgendaClient
       meetings={meetings}
       pastMeetings={pastMeetingsWithAttendance}
       group={group}
-      readOnly={leader.role === 'secretary'}
+      readOnly={false}
+      canEdit={true}
+      canSettings={canSettings}
     />
   );
 }

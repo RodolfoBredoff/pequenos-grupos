@@ -6,8 +6,7 @@ import { canManageMeetings, SECRETARY_FORBIDDEN_MESSAGE } from '@/lib/auth/permi
 
 /**
  * POST /api/meetings/bulk
- * Cria múltiplos encontros de uma vez.
- * Datas já existentes para o grupo são ignoradas (ON CONFLICT DO NOTHING).
+ * Creates multiple meetings at once. Duplicate dates for the group are silently ignored.
  */
 export async function POST(request: Request) {
   try {
@@ -26,7 +25,11 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json();
-    const { dates } = data as { dates: string[] };
+    const { dates, title, meeting_type } = data as {
+      dates: string[];
+      title?: string | null;
+      meeting_type?: 'regular' | 'special_event';
+    };
 
     if (!Array.isArray(dates) || dates.length === 0) {
       return NextResponse.json(
@@ -42,7 +45,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validar formato das datas (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     for (const d of dates) {
       if (!dateRegex.test(d)) {
@@ -53,14 +55,16 @@ export async function POST(request: Request) {
       }
     }
 
-    // Inserir em lote — datas duplicadas são ignoradas silenciosamente
+    const type = meeting_type === 'special_event' ? 'special_event' : 'regular';
+    const meetingTitle = title?.trim() || null;
+
     let created = 0;
     for (const meetingDate of dates) {
       const result = await query(
-        `INSERT INTO meetings (group_id, meeting_date, is_cancelled)
-         VALUES ($1, $2, FALSE)
+        `INSERT INTO meetings (group_id, meeting_date, title, meeting_type, is_cancelled)
+         VALUES ($1, $2, $3, $4, FALSE)
          ON CONFLICT (group_id, meeting_date) DO NOTHING`,
-        [leader.group_id, meetingDate]
+        [leader.group_id, meetingDate, meetingTitle, type]
       );
       created += result.rowCount ?? 0;
     }

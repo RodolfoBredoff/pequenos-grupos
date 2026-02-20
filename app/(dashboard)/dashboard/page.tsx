@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { getCurrentLeader, getUnreadNotifications, getGroupStats } from '@/lib/db/queries';
 import { queryOne, queryMany } from '@/lib/db/postgres';
 import { AlertsPanel } from '@/components/dashboard/alerts-panel';
@@ -5,6 +6,11 @@ import { StatsCards } from '@/components/dashboard/stats-cards';
 
 export default async function DashboardPage() {
   const leader = await getCurrentLeader();
+
+  // Coordinators have their own panel
+  if (leader?.role === 'coordinator') {
+    redirect('/org/dashboard');
+  }
 
   if (!leader?.group_id) {
     return (

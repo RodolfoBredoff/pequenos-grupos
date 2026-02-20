@@ -43,17 +43,26 @@ function parseBirthDate(val: string | null | undefined): { day: string; month: s
   return {
     day: (d || '').replace(/\D/g, ''),
     month: (m || '').replace(/\D/g, ''),
-    year: (y || '').replace(/\D/g, ''),
+    // Show empty year if it's the placeholder year (1900)
+    year: (y === '1900' || !y) ? '' : (y || '').replace(/\D/g, ''),
   };
 }
 
+/**
+ * Formats day/month/year into a date string.
+ * If year is not provided, uses 1900 as a placeholder.
+ * Returns null if neither day nor month are provided.
+ */
 function formatBirthDate(day: string, month: string, year: string): string | null {
-  if (!day || !month || !year) return null;
+  if (!day || !month) return null;
   const d = day.padStart(2, '0');
   const m = month.padStart(2, '0');
-  const y = year.padStart(4, '0');
-  if (d.length !== 2 || m.length !== 2 || y.length !== 4) return null;
+  const y = year ? year.padStart(4, '0') : '1900';
   return `${y}-${m}-${d}`;
+}
+
+function isPlaceholderYear(year: string | null | undefined): boolean {
+  return !year || year === '1900';
 }
 
 export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
@@ -87,19 +96,28 @@ export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const birth_date = formatBirthDate(formData.birth_day, formData.birth_month, formData.birth_year);
-    if (!birth_date) {
-      alert('Data de nascimento é obrigatória. Preencha dia, mês e ano.');
+
+    // If some birthday fields are filled, validate consistency
+    const hasBirthdayPartial = formData.birth_day || formData.birth_month;
+    if (hasBirthdayPartial && (!formData.birth_day || !formData.birth_month)) {
+      alert('Para cadastrar o aniversário, preencha pelo menos o dia e o mês.');
       return;
     }
+
+    const birth_date = hasBirthdayPartial
+      ? formatBirthDate(formData.birth_day, formData.birth_month, formData.birth_year)
+      : null;
+
     setLoading(true);
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       full_name: formData.full_name,
       phone: formData.phone,
-      birth_date,
       member_type: formData.member_type,
     };
+    if (birth_date !== null) {
+      payload.birth_date = birth_date;
+    }
 
     try {
       if (initialData) {
@@ -162,9 +180,9 @@ export function PessoaForm({ groupId, initialData }: PessoaFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label>Data de Nascimento *</Label>
+        <Label>Data de Aniversário <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
         <p className="text-xs text-muted-foreground">
-          Dia, mês e ano — o líder será notificado no dia do aniversário
+          Preencha ao menos dia e mês — o ano é opcional. O líder será notificado no dia do aniversário.
         </p>
         <div className="grid grid-cols-3 gap-2">
           <div>

@@ -6,8 +6,7 @@ import { canManageMeetings, SECRETARY_FORBIDDEN_MESSAGE } from '@/lib/auth/permi
 
 /**
  * PUT /api/meetings/[id]
- * Atualiza uma reunião (data, horário, cancelamento, notas)
- * Apenas o líder do grupo pode editar reuniões do seu grupo
+ * Updates a meeting. Leaders and secretaries can edit meetings.
  */
 export async function PUT(
   request: Request,
@@ -30,7 +29,6 @@ export async function PUT(
 
     const { id } = await params;
 
-    // Verificar se a reunião pertence ao grupo do líder
     const existing = await queryOne<{ id: string; group_id: string; meeting_date: string }>(
       `SELECT id, group_id, meeting_date FROM meetings WHERE id = $1`,
       [id]
@@ -44,7 +42,7 @@ export async function PUT(
     }
 
     const data = await request.json();
-    const { meeting_date, meeting_time, is_cancelled, title, notes } = data;
+    const { meeting_date, meeting_time, is_cancelled, title, notes, meeting_type } = data;
 
     const updates: string[] = [];
     const values: unknown[] = [];
@@ -70,6 +68,10 @@ export async function PUT(
       updates.push(`notes = $${paramIndex++}`);
       values.push(notes || null);
     }
+    if (meeting_type !== undefined && (meeting_type === 'regular' || meeting_type === 'special_event')) {
+      updates.push(`meeting_type = $${paramIndex++}`);
+      values.push(meeting_type);
+    }
 
     if (updates.length === 0) {
       return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 });
@@ -93,7 +95,7 @@ export async function PUT(
 
 /**
  * DELETE /api/meetings/[id]
- * Remove uma reunião futura do grupo
+ * Removes a meeting from the group. Leaders and secretaries can delete meetings.
  */
 export async function DELETE(
   _request: Request,

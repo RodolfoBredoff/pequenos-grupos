@@ -11,7 +11,7 @@ import { logout } from '@/app/(dashboard)/actions';
 type DashboardNavProps = {
   groupName: string;
   leaderDisplayName: string;
-  role?: 'leader' | 'secretary';
+  role?: 'leader' | 'secretary' | 'coordinator';
 };
 
 export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: DashboardNavProps) {

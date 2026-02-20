@@ -12,7 +12,7 @@ export interface Leader {
   full_name: string;
   email: string;
   phone: string | null;
-  role: 'leader' | 'secretary';
+  role: 'leader' | 'secretary' | 'coordinator';
   created_at: string;
 }
 
@@ -36,6 +36,7 @@ export interface Meeting {
   title: string | null;
   is_cancelled: boolean;
   notes: string | null;
+  meeting_type: 'regular' | 'special_event';
   created_at: string;
 }
 

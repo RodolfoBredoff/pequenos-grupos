@@ -1,68 +1,72 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth/admin-session';
+import { requireCoordinator } from '@/lib/auth/coordinator-session';
 import { query, queryMany } from '@/lib/db/postgres';
 import bcrypt from 'bcryptjs';
 
 /**
- * GET /api/admin/leaders
- * Lista todos os líderes com seus grupos
+ * GET /api/coordinator/leaders
+ * Returns all leaders and secretaries in the coordinator's organization.
  */
 export async function GET() {
   try {
-    await requireAdmin();
+    const coordinator = await requireCoordinator();
 
     const leaders = await queryMany<{
       id: string;
       full_name: string;
       email: string;
       phone: string | null;
+      role: string;
       group_id: string | null;
       group_name: string | null;
-      organization_name: string | null;
       created_at: string;
     }>(
-      `SELECT 
-        l.id, l.full_name, l.email, l.phone,
-        l.group_id, g.name as group_name,
-        o.name as organization_name,
-        l.created_at
+      `SELECT l.id, l.full_name, l.email, l.phone, l.role, l.group_id,
+              g.name as group_name, l.created_at
        FROM leaders l
        LEFT JOIN groups g ON g.id = l.group_id
-       LEFT JOIN organizations o ON o.id = l.organization_id
-       ORDER BY l.full_name ASC`
+       WHERE l.organization_id = $1 AND l.role IN ('leader','secretary')
+       ORDER BY l.full_name ASC`,
+      [coordinator.organization_id]
     );
 
     return NextResponse.json(leaders);
   } catch (error) {
     console.error('Erro ao listar líderes:', error);
-    return NextResponse.json({ error: 'Erro ao listar líderes' }, { status: 500 });
+    return NextResponse.json({ error: 'Acesso negado ou erro interno' }, { status: 403 });
   }
 }
 
 /**
- * POST /api/admin/leaders
- * Cria um novo líder (e o usuário correspondente)
+ * POST /api/coordinator/leaders
+ * Creates a new leader or secretary in the coordinator's organization.
  */
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    const coordinator = await requireCoordinator();
+    const { full_name, email, phone, group_id, role, password } = await request.json();
 
-    const { full_name, email, phone, organization_id, group_id, role, password } =
-      await request.json();
-
-    if (!full_name || !email || !organization_id) {
+    if (!full_name || !email) {
       return NextResponse.json(
-        { error: 'Campos obrigatórios: full_name, email, organization_id' },
+        { error: 'Campos obrigatórios: full_name, email' },
         { status: 400 }
       );
     }
 
-    const leaderRole = ['leader', 'secretary', 'coordinator'].includes(role) ? role : 'leader';
-    const resolvedGroupId = leaderRole === 'coordinator' ? null : (group_id || null);
+    const leaderRole = role === 'secretary' ? 'secretary' : 'leader';
+
+    if (group_id) {
+      const groupCheck = await query(
+        `SELECT id FROM groups WHERE id = $1 AND organization_id = $2`,
+        [group_id, coordinator.organization_id]
+      );
+      if (groupCheck.rows.length === 0) {
+        return NextResponse.json({ error: 'Grupo não pertence à sua organização' }, { status: 403 });
+      }
+    }
 
     const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
-    // Criar ou atualizar user
     const userResult = await query(
       `INSERT INTO users (email, email_verified, password_hash)
        VALUES ($1, TRUE, $2)
@@ -73,7 +77,6 @@ export async function POST(request: Request) {
 
     const userId = userResult.rows[0].id;
 
-    // Criar líder
     const leaderResult = await query(
       `INSERT INTO leaders (id, organization_id, group_id, full_name, email, phone, role)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
          group_id = EXCLUDED.group_id,
          role = EXCLUDED.role
        RETURNING *`,
-      [userId, organization_id, resolvedGroupId, full_name, email.toLowerCase().trim(), phone || null, leaderRole]
+      [userId, coordinator.organization_id, group_id || null, full_name, email.toLowerCase().trim(), phone || null, leaderRole]
     );
 
     return NextResponse.json(leaderResult.rows[0], { status: 201 });

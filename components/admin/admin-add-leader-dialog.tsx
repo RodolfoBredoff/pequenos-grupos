@@ -41,6 +41,7 @@ export function AdminAddLeaderDialog({
   const [phone, setPhone] = useState('');
   const [orgId, setOrgId] = useState(organizations[0]?.id ?? '');
   const [groupId, setGroupId] = useState('');
+  const [role, setRole] = useState('leader');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,6 +62,7 @@ export function AdminAddLeaderDialog({
           phone: phone || null,
           organization_id: orgId,
           group_id: groupId || null,
+          role: role || 'leader',
           password: password || null,
         }),
       });
@@ -73,6 +75,7 @@ export function AdminAddLeaderDialog({
       setEmail('');
       setPhone('');
       setGroupId('');
+      setRole('leader');
       setPassword('');
       setOpen(false);
       router.refresh();
@@ -139,6 +142,23 @@ export function AdminAddLeaderDialog({
                 <option key={o.id} value={o.id}>{o.name}</option>
               ))}
             </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Papel</Label>
+            <select
+              value={role}
+              onChange={(e) => { setRole(e.target.value); if (e.target.value === 'coordinator') setGroupId(''); }}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="leader">Líder</option>
+              <option value="secretary">Secretário(a)</option>
+              <option value="coordinator">Coordenador(a)</option>
+            </select>
+            {role === 'coordinator' && (
+              <p className="text-xs text-muted-foreground">
+                Coordenadores têm acesso completo à sua organização e não são vinculados a um grupo específico.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Grupo (opcional)</Label>

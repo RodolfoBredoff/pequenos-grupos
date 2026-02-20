@@ -1,24 +1,32 @@
-export type LeaderRole = 'leader' | 'secretary';
+export type LeaderRole = 'leader' | 'secretary' | 'coordinator';
 
 export function isSecretary(role: LeaderRole | string): boolean {
   return role === 'secretary';
 }
 
+export function isCoordinator(role: LeaderRole | string): boolean {
+  return role === 'coordinator';
+}
+
 export function canManageMeetings(role: LeaderRole | string): boolean {
-  return role === 'leader';
+  return role === 'leader' || role === 'secretary' || role === 'coordinator';
 }
 
 export function canManageSettings(role: LeaderRole | string): boolean {
-  return role === 'leader';
+  return role === 'leader' || role === 'coordinator';
 }
 
 export function canManageSecretaries(role: LeaderRole | string): boolean {
-  return role === 'leader';
+  return role === 'leader' || role === 'coordinator';
 }
 
 export function canDeleteMembers(role: LeaderRole | string): boolean {
-  return role === 'leader';
+  return role === 'leader' || role === 'coordinator';
+}
+
+export function canManageOrganization(role: LeaderRole | string): boolean {
+  return role === 'coordinator';
 }
 
 export const SECRETARY_FORBIDDEN_MESSAGE =
-  'Secretários não têm permissão para executar esta ação.';
+  'Você não tem permissão para executar esta ação.';

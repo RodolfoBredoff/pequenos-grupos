@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, Clock, Pencil, Settings, Ban, RotateCcw, PlusCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Pencil, Settings, Ban, RotateCcw, PlusCircle, Star, CalendarPlus, Trash2 } from 'lucide-react';
 import { formatDate, getDayOfWeekName } from '@/lib/utils';
 
 // ============================================================
@@ -30,6 +30,7 @@ interface Meeting {
   is_cancelled: boolean;
   title: string | null;
   notes: string | null;
+  meeting_type: 'regular' | 'special_event';
   created_at: string;
 }
 
@@ -47,9 +48,10 @@ interface AgendaClientProps {
   pastMeetings: MeetingWithCount[];
   group: GroupSettings;
   readOnly?: boolean;
+  canEdit?: boolean;
+  canSettings?: boolean;
 }
 
-// Converte qualquer valor de data para string "YYYY-MM-DD" compatível com <input type="date">
 function toInputDate(val: string | Date | null | undefined): string {
   if (!val) return '';
   if (typeof val === 'string') return val.split('T')[0];
@@ -77,6 +79,7 @@ function EditMeetingDialog({
   const [time, setTime] = useState(meeting.meeting_time ?? defaultTime);
   const [title, setTitle] = useState(meeting.title ?? '');
   const [notes, setNotes] = useState(meeting.notes ?? '');
+  const [meetingType, setMeetingType] = useState<'regular' | 'special_event'>(meeting.meeting_type ?? 'regular');
 
   useEffect(() => {
     if (meeting) {
@@ -84,17 +87,15 @@ function EditMeetingDialog({
       setTime(meeting.meeting_time ?? defaultTime);
       setTitle(meeting.title ?? '');
       setNotes(meeting.notes ?? '');
+      setMeetingType(meeting.meeting_type ?? 'regular');
     }
-  }, [meeting?.id, meeting?.meeting_date, meeting?.meeting_time, meeting?.title, meeting?.notes, defaultTime]);
+  }, [meeting?.id, meeting?.meeting_date, meeting?.meeting_time, meeting?.title, meeting?.notes, meeting?.meeting_type, defaultTime]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSave = async () => {
-    if (!date) {
-      setError('A data é obrigatória');
-      return;
-    }
+    if (!date) { setError('A data é obrigatória'); return; }
     setError('');
     setLoading(true);
     try {
@@ -106,18 +107,11 @@ function EditMeetingDialog({
           meeting_time: time || null,
           title: title || null,
           notes: notes || null,
+          meeting_type: meetingType,
         }),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || 'Erro ao salvar');
-      }
-      onSave({
-        meeting_date: date,
-        meeting_time: time || null,
-        title: title || null,
-        notes: notes || null,
-      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erro ao salvar'); }
+      onSave({ meeting_date: date, meeting_time: time || null, title: title || null, notes: notes || null, meeting_type: meetingType });
       onOpenChange(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao salvar');
@@ -133,56 +127,132 @@ function EditMeetingDialog({
           <DialogTitle>Editar Encontro</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {error && (
-            <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>}
+          <div className="space-y-2">
+            <Label htmlFor="edit-type">Tipo de Encontro</Label>
+            <select id="edit-type" value={meetingType} onChange={(e) => setMeetingType(e.target.value as 'regular' | 'special_event')}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              <option value="regular">Encontro Regular</option>
+              <option value="special_event">Agenda Especial / Evento</option>
+            </select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="meeting-title">Nome / Tema do Encontro</Label>
-            <Input
-              id="meeting-title"
-              placeholder="Ex: Estudo sobre fé, Confraternização..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+            <Input id="meeting-title" placeholder="Ex: Estudo sobre fé, Confraternização..." value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="meeting-date">Data</Label>
-            <Input
-              id="meeting-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <Input id="meeting-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="meeting-time">Horário</Label>
-            <Input
-              id="meeting-time"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Horário padrão do grupo: {defaultTime}
-            </p>
+            <Input id="meeting-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Horário padrão do grupo: {defaultTime}</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="meeting-notes">Observações (opcional)</Label>
-            <Input
-              id="meeting-notes"
-              placeholder="Outras anotações sobre o encontro..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
+            <Input id="meeting-notes" placeholder="Outras anotações..." value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
         </div>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" disabled={loading}>Cancelar</Button>
-          </DialogClose>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? 'Salvando...' : 'Salvar'}
-          </Button>
+          <DialogClose asChild><Button variant="outline" disabled={loading}>Cancelar</Button></DialogClose>
+          <Button onClick={handleSave} disabled={loading}>{loading ? 'Salvando...' : 'Salvar'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
+// Dialog de criação de encontro único
+// ============================================================
+
+function AddMeetingDialog({
+  group,
+  open,
+  onOpenChange,
+  onSave,
+}: {
+  group: GroupSettings;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSave: () => void;
+}) {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const [date, setDate] = useState(todayStr);
+  const [time, setTime] = useState(group.default_meeting_time.substring(0, 5));
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [meetingType, setMeetingType] = useState<'regular' | 'special_event'>('regular');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreate = async () => {
+    if (!date) { setError('A data é obrigatória'); return; }
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/meetings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meeting_date: date,
+          meeting_time: time || null,
+          title: title || null,
+          notes: notes || null,
+          meeting_type: meetingType,
+        }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erro ao criar encontro'); }
+      setDate(todayStr); setTime(group.default_meeting_time.substring(0, 5));
+      setTitle(''); setNotes(''); setMeetingType('regular');
+      onSave();
+      onOpenChange(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao criar encontro');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Novo Encontro</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {error && <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>}
+          <div className="space-y-2">
+            <Label htmlFor="add-type">Tipo de Encontro</Label>
+            <select id="add-type" value={meetingType} onChange={(e) => setMeetingType(e.target.value as 'regular' | 'special_event')}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              <option value="regular">Encontro Regular</option>
+              <option value="special_event">Agenda Especial / Evento</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-title">Nome do Encontro</Label>
+            <Input id="add-title" placeholder="Ex: Encontro de Comunhão, Culto Especial..." value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-date">Data *</Label>
+            <Input id="add-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-time">Horário</Label>
+            <Input id="add-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="add-notes">Observações (opcional)</Label>
+            <Input id="add-notes" placeholder="Detalhes do encontro..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button variant="outline" disabled={loading}>Cancelar</Button></DialogClose>
+          <Button onClick={handleCreate} disabled={loading}>{loading ? 'Criando...' : 'Criar Encontro'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -226,15 +296,9 @@ function GroupSettingsDialog({
       const res = await fetch('/api/groups/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          default_meeting_day: parseInt(day),
-          default_meeting_time: time,
-        }),
+        body: JSON.stringify({ default_meeting_day: parseInt(day), default_meeting_time: time }),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || 'Erro ao salvar');
-      }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erro ao salvar'); }
       onSave();
       onOpenChange(false);
     } catch (e) {
@@ -247,49 +311,27 @@ function GroupSettingsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Configurações do Grupo</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Configurações do Grupo</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
-          {error && (
-            <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>}
           <div className="space-y-2">
             <Label htmlFor="meeting-day">Dia padrão das reuniões</Label>
-            <select
-              id="meeting-day"
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              {DAY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+            <select id="meeting-day" value={day} onChange={(e) => setDay(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              {DAY_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="default-time">Horário padrão das reuniões</Label>
-            <Input
-              id="default-time"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
+            <Input id="default-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </div>
           <p className="text-xs text-muted-foreground">
             Estas configurações afetam novas reuniões geradas automaticamente.
-            Reuniões já agendadas podem ser editadas individualmente.
           </p>
         </div>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" disabled={loading}>Cancelar</Button>
-          </DialogClose>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? 'Salvando...' : 'Salvar'}
-          </Button>
+          <DialogClose asChild><Button variant="outline" disabled={loading}>Cancelar</Button></DialogClose>
+          <Button onClick={handleSave} disabled={loading}>{loading ? 'Salvando...' : 'Salvar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -297,7 +339,7 @@ function GroupSettingsDialog({
 }
 
 // ============================================================
-// Dialog de geração em lote de encontros
+// Dialog de geração em lote
 // ============================================================
 
 function generateDates(startDate: string, endDate: string, weekDay: number): string[] {
@@ -308,7 +350,6 @@ function generateDates(startDate: string, endDate: string, weekDay: number): str
   const end = new Date(endDate + 'T00:00:00');
   if (start > end) return dates;
 
-  // Avança até o primeiro dia da semana desejado
   const current = new Date(start);
   const diff = (weekDay - current.getDay() + 7) % 7;
   current.setDate(current.getDate() + diff);
@@ -344,6 +385,7 @@ function BulkMeetingDialog({
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(in3MonthsStr);
   const [weekDay, setWeekDay] = useState(String(group.default_meeting_day));
+  const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -351,23 +393,15 @@ function BulkMeetingDialog({
   const preview = generateDates(startDate, endDate, parseInt(weekDay));
 
   const handleCreate = async () => {
-    if (preview.length === 0) {
-      setError('Nenhuma data gerada com os parâmetros informados.');
-      return;
-    }
-    setError('');
-    setSuccess('');
-    setLoading(true);
+    if (preview.length === 0) { setError('Nenhuma data gerada com os parâmetros informados.'); return; }
+    setError(''); setSuccess(''); setLoading(true);
     try {
       const res = await fetch('/api/meetings/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dates: preview }),
+        body: JSON.stringify({ dates: preview, title: title || null }),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || 'Erro ao criar encontros');
-      }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erro ao criar encontros'); }
       const data = await res.json();
       setSuccess(`${data.created} encontro(s) criado(s) com sucesso!`);
       onSave();
@@ -381,80 +415,49 @@ function BulkMeetingDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Gerar Encontros em Lote</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Gerar Encontros em Lote</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
-          {error && (
-            <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>
-          )}
-          {success && (
-            <p className="text-sm text-green-700 bg-green-50 rounded-md p-2">{success}</p>
-          )}
+          {error && <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>}
+          {success && <p className="text-sm text-green-700 bg-green-50 rounded-md p-2">{success}</p>}
+          <div className="space-y-2">
+            <Label htmlFor="bulk-title">Nome dos Encontros (opcional)</Label>
+            <Input id="bulk-title" placeholder="Ex: Encontro de Comunhão, Célula..." value={title} onChange={(e) => setTitle(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Será aplicado a todos os encontros gerados.</p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="bulk-start">Data inicial</Label>
-              <Input
-                id="bulk-start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <Input id="bulk-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="bulk-end">Data final</Label>
-              <Input
-                id="bulk-end"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+              <Input id="bulk-end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="bulk-weekday">Dia da semana</Label>
-            <select
-              id="bulk-weekday"
-              value={weekDay}
-              onChange={(e) => setWeekDay(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              {DAY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+            <select id="bulk-weekday" value={weekDay} onChange={(e) => setWeekDay(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              {DAY_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
           </div>
-
           {preview.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">
-                {preview.length} encontro(s) a criar:
-              </p>
+              <p className="text-sm font-medium">{preview.length} encontro(s) a criar:</p>
               <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-1">
                 {preview.map((d) => (
-                  <p key={d} className="text-sm text-muted-foreground">
-                    {formatDate(d)}
-                  </p>
+                  <p key={d} className="text-sm text-muted-foreground">{formatDate(d)}</p>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Datas já existentes serão ignoradas automaticamente.
-              </p>
+              <p className="text-xs text-muted-foreground">Datas já existentes serão ignoradas automaticamente.</p>
             </div>
           )}
-
           {preview.length === 0 && startDate && endDate && (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma data encontrada para o período selecionado.
-            </p>
+            <p className="text-sm text-muted-foreground">Nenhuma data encontrada para o período selecionado.</p>
           )}
         </div>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" disabled={loading}>Cancelar</Button>
-          </DialogClose>
+          <DialogClose asChild><Button variant="outline" disabled={loading}>Cancelar</Button></DialogClose>
           <Button onClick={handleCreate} disabled={loading || preview.length === 0}>
             {loading ? 'Criando...' : `Criar ${preview.length} encontro(s)`}
           </Button>
@@ -468,7 +471,14 @@ function BulkMeetingDialog({
 // Componente principal
 // ============================================================
 
-export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: initialGroup, readOnly = false }: AgendaClientProps) {
+export function AgendaClient({
+  meetings: initialMeetings,
+  pastMeetings,
+  group: initialGroup,
+  readOnly = false,
+  canEdit,
+  canSettings,
+}: AgendaClientProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -477,17 +487,18 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
+  const [showAddMeeting, setShowAddMeeting] = useState(false);
+
+  // canEdit: leader and secretary can edit meetings; canSettings: only leader
+  const canEditMeetings = canEdit !== undefined ? canEdit : !readOnly;
+  const canManageSettings = canSettings !== undefined ? canSettings : !readOnly;
 
   useEffect(() => {
     setMeetings(initialMeetings);
     setGroup(initialGroup);
   }, [initialMeetings, initialGroup]);
 
-  const refresh = () => {
-    startTransition(() => {
-      router.refresh();
-    });
-  };
+  const refresh = () => { startTransition(() => { router.refresh(); }); };
 
   const handleCancelToggle = async (meeting: Meeting) => {
     try {
@@ -497,11 +508,7 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
         body: JSON.stringify({ is_cancelled: !meeting.is_cancelled }),
       });
       if (res.ok) {
-        setMeetings((prev) =>
-          prev.map((m) =>
-            m.id === meeting.id ? { ...m, is_cancelled: !m.is_cancelled } : m
-          )
-        );
+        setMeetings((prev) => prev.map((m) => m.id === meeting.id ? { ...m, is_cancelled: !m.is_cancelled } : m));
         refresh();
       }
     } catch (e) {
@@ -509,10 +516,21 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
     }
   };
 
+  const handleDelete = async (meeting: Meeting) => {
+    if (!confirm(`Remover o encontro "${meeting.title ?? formatDate(meeting.meeting_date)}"? Esta ação é irreversível.`)) return;
+    try {
+      const res = await fetch(`/api/meetings/${meeting.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMeetings((prev) => prev.filter((m) => m.id !== meeting.id));
+        refresh();
+      }
+    } catch (e) {
+      console.error('Erro ao remover reunião:', e);
+    }
+  };
+
   const getMeetingTime = (meeting: Meeting) =>
-    meeting.meeting_time
-      ? meeting.meeting_time.substring(0, 5)
-      : group.default_meeting_time.substring(0, 5);
+    meeting.meeting_time ? meeting.meeting_time.substring(0, 5) : group.default_meeting_time.substring(0, 5);
 
   return (
     <div className="space-y-6">
@@ -524,26 +542,22 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
             {group.default_meeting_time.substring(0, 5)}
           </p>
         </div>
-        {!readOnly && (
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowBulkCreate(true)}
-              className="flex items-center gap-2"
-            >
+        {canEditMeetings && (
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            <Button variant="default" size="sm" onClick={() => setShowAddMeeting(true)} className="flex items-center gap-2">
+              <CalendarPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo Encontro</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowBulkCreate(true)} className="flex items-center gap-2">
               <PlusCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Gerar Encontros</span>
+              <span className="hidden sm:inline">Gerar em Lote</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowGroupSettings(true)}
-              className="flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurações</span>
-            </Button>
+            {canManageSettings && (
+              <Button variant="outline" size="sm" onClick={() => setShowGroupSettings(true)} className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Configurações</span>
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -561,14 +575,19 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
             {meetings && meetings.length > 0 ? (
               <div className="space-y-3">
                 {meetings.map((meeting) => (
-                  <div
-                    key={meeting.id}
-                    className="flex items-center justify-between p-3 border rounded-lg gap-2"
-                  >
+                  <div key={meeting.id} className="flex items-center justify-between p-3 border rounded-lg gap-2">
                     <div className="min-w-0">
-                      {meeting.title ? (
-                        <p className="font-semibold text-sm truncate">{meeting.title}</p>
-                      ) : null}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {meeting.meeting_type === 'special_event' && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200 shrink-0">
+                            <Star className="h-3 w-3 mr-1" />
+                            Especial
+                          </Badge>
+                        )}
+                        {meeting.title ? (
+                          <p className="font-semibold text-sm truncate">{meeting.title}</p>
+                        ) : null}
+                      </div>
                       <p className={meeting.title ? 'text-sm text-muted-foreground' : 'font-medium'}>
                         {formatDate(meeting.meeting_date)}
                       </p>
@@ -588,29 +607,24 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
                       ) : (
                         <Badge>Confirmada</Badge>
                       )}
-                      {!readOnly && (
+                      {canEditMeetings && (
                         <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Editar reunião"
-                            onClick={() => setEditingMeeting(meeting)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar encontro"
+                            onClick={() => setEditingMeeting(meeting)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
+                          <Button variant="ghost" size="icon" className="h-8 w-8"
                             title={meeting.is_cancelled ? 'Reativar reunião' : 'Cancelar reunião'}
-                            onClick={() => handleCancelToggle(meeting)}
-                          >
+                            onClick={() => handleCancelToggle(meeting)}>
                             {meeting.is_cancelled ? (
                               <RotateCcw className="h-3.5 w-3.5 text-green-600" />
                             ) : (
                               <Ban className="h-3.5 w-3.5 text-destructive" />
                             )}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Remover encontro"
+                            onClick={() => handleDelete(meeting)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       )}
@@ -623,15 +637,10 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
                 <p className="text-sm text-muted-foreground">
                   Nenhuma reunião agendada para os próximos 30 dias.
                 </p>
-                {!readOnly && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowBulkCreate(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                    Gerar encontros
+                {canEditMeetings && (
+                  <Button variant="outline" size="sm" onClick={() => setShowAddMeeting(true)} className="flex items-center gap-2">
+                    <CalendarPlus className="h-4 w-4" />
+                    Criar encontro
                   </Button>
                 )}
               </div>
@@ -651,14 +660,19 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
             {pastMeetings && pastMeetings.length > 0 ? (
               <div className="space-y-3">
                 {pastMeetings.map((meeting) => (
-                  <div
-                    key={meeting.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
+                  <div key={meeting.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
-                      {meeting.title && (
-                        <p className="font-semibold text-sm">{meeting.title}</p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {meeting.meeting_type === 'special_event' && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                            <Star className="h-3 w-3 mr-1" />
+                            Especial
+                          </Badge>
+                        )}
+                        {meeting.title && (
+                          <p className="font-semibold text-sm">{meeting.title}</p>
+                        )}
+                      </div>
                       <p className={meeting.title ? 'text-sm text-muted-foreground' : 'font-medium'}>
                         {formatDate(meeting.meeting_date)}
                       </p>
@@ -691,11 +705,7 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
           onOpenChange={(v) => !v && setEditingMeeting(null)}
           onSave={(updated) => {
             if (updated) {
-              setMeetings((prev) =>
-                prev.map((m) =>
-                  m.id === editingMeeting.id ? { ...m, ...updated } : m
-                )
-              );
+              setMeetings((prev) => prev.map((m) => m.id === editingMeeting.id ? { ...m, ...updated } : m));
             }
             setEditingMeeting(null);
             refresh();
@@ -703,27 +713,31 @@ export function AgendaClient({ meetings: initialMeetings, pastMeetings, group: i
         />
       )}
 
+      {/* Dialog: Novo Encontro */}
+      <AddMeetingDialog
+        group={group}
+        open={showAddMeeting}
+        onOpenChange={setShowAddMeeting}
+        onSave={() => { refresh(); setShowAddMeeting(false); }}
+      />
+
       {/* Dialog: Gerar Encontros em Lote */}
       <BulkMeetingDialog
         group={group}
         open={showBulkCreate}
         onOpenChange={setShowBulkCreate}
-        onSave={() => {
-          refresh();
-          setShowBulkCreate(false);
-        }}
+        onSave={() => { refresh(); setShowBulkCreate(false); }}
       />
 
       {/* Dialog: Configurações do Grupo */}
-      <GroupSettingsDialog
-        group={group}
-        open={showGroupSettings}
-        onOpenChange={setShowGroupSettings}
-        onSave={() => {
-          refresh();
-          setShowGroupSettings(false);
-        }}
-      />
+      {canManageSettings && (
+        <GroupSettingsDialog
+          group={group}
+          open={showGroupSettings}
+          onOpenChange={setShowGroupSettings}
+          onSave={() => { refresh(); setShowGroupSettings(false); }}
+        />
+      )}
     </div>
   );
 }
