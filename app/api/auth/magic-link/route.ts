@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createMagicLinkToken } from '@/lib/auth/magic-link';
 import { getAppBaseUrlForBrowser } from '@/lib/utils';
+import { queryOne } from '@/lib/db/postgres';
 
 /**
  * POST /api/auth/magic-link
@@ -23,6 +24,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Email inválido' },
         { status: 400 }
+      );
+    }
+
+    // Verificar se o e-mail está cadastrado como líder/secretário/coordenador
+    const leaderExists = await queryOne<{ id: string }>(
+      `SELECT id FROM leaders WHERE LOWER(email) = LOWER($1)`,
+      [email]
+    );
+
+    if (!leaderExists) {
+      return NextResponse.json(
+        { error: 'E-mail não cadastrado. Entre em contato com o administrador para criar seu acesso.' },
+        { status: 403 }
       );
     }
 

@@ -16,6 +16,7 @@ function LoginForm() {
   const [sent, setSent] = useState(false);
   const [magicLinkUrl, setMagicLinkUrl] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -25,6 +26,7 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setMagicLinkUrl(null);
+    setLoginError(null);
 
     try {
       const response = await fetch('/api/auth/magic-link', {
@@ -38,8 +40,9 @@ function LoginForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        const msg = data.details || data.error || 'Erro ao enviar link de acesso';
-        throw new Error(msg);
+        const msg = data.error || data.details || 'Erro ao enviar link de acesso';
+        setLoginError(msg);
+        return;
       }
 
       if (data.magicLink) {
@@ -50,8 +53,7 @@ function LoginForm() {
       setSent(true);
     } catch (error: unknown) {
       console.error('Login error:', error);
-      const msg = error instanceof Error ? error.message : 'Erro desconhecido';
-      alert('Erro ao enviar link: ' + msg);
+      setLoginError('Erro ao processar solicitação. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -120,6 +122,11 @@ function LoginForm() {
         {reason === 'no-leader' && (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
             Sua conta ainda não está cadastrada como líder de um grupo. Execute o setup inicial ou peça ao administrador para vincular seu e-mail a um grupo.
+          </p>
+        )}
+        {loginError && (
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+            {loginError}
           </p>
         )}
         <form onSubmit={handleLogin} className="space-y-4">

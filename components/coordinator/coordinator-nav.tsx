@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { LinkButton } from '@/components/ui/link-button';
 import { PastoreioLogo } from '@/components/brand/PastoreioLogo';
-import { Home, Users, Group, LogOut, TrendingUp, Building2 } from 'lucide-react';
+import { Home, Users, Group, LogOut, TrendingUp, Building2, UserCircle } from 'lucide-react';
 import { logout } from '@/app/(dashboard)/actions';
 
 type CoordinatorNavProps = {
@@ -49,11 +49,15 @@ export function CoordinatorNav({ orgName, coordinatorName }: CoordinatorNavProps
           ))}
         </nav>
 
-        <div className="p-4 border-t">
-          <p className="text-sm text-muted-foreground">{coordinatorName}</p>
-          <span className="inline-block mt-1 mb-2 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
+        <div className="p-4 border-t space-y-2">
+          <p className="text-sm text-muted-foreground truncate">{coordinatorName}</p>
+          <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
             Coordenador(a)
           </span>
+          <LinkButton href="/org/conta" variant="ghost" className="w-full justify-start">
+            {mounted ? <UserCircle className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Minha Conta
+          </LinkButton>
           <form action={logout}>
             <Button variant="outline" className="w-full" type="submit">
               {mounted ? <LogOut className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
@@ -74,6 +78,19 @@ export function CoordinatorNav({ orgName, coordinatorName }: CoordinatorNavProps
               <span className="text-[10px] mt-1 whitespace-nowrap">{label}</span>
             </Link>
           ))}
+          <Link
+            href="/org/conta"
+            className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary active:text-primary shrink-0"
+          >
+            {mounted ? <UserCircle className="h-5 w-5" /> : <span className="h-5 w-5 inline-block" />}
+            <span className="text-[10px] mt-1 whitespace-nowrap">Conta</span>
+          </Link>
+          <form action={logout} className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 shrink-0">
+            <button type="submit" className="flex flex-col items-center justify-center w-full text-muted-foreground hover:text-destructive transition-colors">
+              {mounted ? <LogOut className="h-5 w-5" /> : <span className="h-5 w-5 inline-block" />}
+              <span className="text-[10px] mt-1 whitespace-nowrap">Sair</span>
+            </button>
+          </form>
         </div>
       </nav>
     </>

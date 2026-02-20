@@ -27,6 +27,11 @@ export default async function DashboardLayout({
     redirect('/api/auth/clear-session?to=/login&reason=no-leader');
   }
 
+  // Coordinators have their own layout under /org
+  if (leader.role === 'coordinator') {
+    redirect('/org/dashboard');
+  }
+
   let groupName = 'Meu Grupo';
   if (leader.group_id) {
     const group = await queryOne<{ name: string }>(

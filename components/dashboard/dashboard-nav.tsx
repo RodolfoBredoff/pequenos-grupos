@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { LinkButton } from '@/components/ui/link-button';
 import { PastoreioLogo } from '@/components/brand/PastoreioLogo';
-import { Home, Users, ClipboardCheck, Calendar, LogOut, TrendingUp, Settings } from 'lucide-react';
+import { Home, Users, ClipboardCheck, Calendar, LogOut, TrendingUp, Settings, UserCircle } from 'lucide-react';
 import { logout } from '@/app/(dashboard)/actions';
 
 type DashboardNavProps = {
@@ -61,14 +61,17 @@ export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: 
           )}
         </nav>
 
-        <div className="p-4 border-t">
-          <p className="text-sm text-muted-foreground">{leaderDisplayName}</p>
+        <div className="p-4 border-t space-y-2">
+          <p className="text-sm text-muted-foreground truncate">{leaderDisplayName}</p>
           {isSecretary && (
-            <span className="inline-block mt-1 mb-2 px-2 py-0.5 text-xs rounded-full bg-accent/15 text-accent-foreground font-medium">
+            <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-accent/15 text-accent-foreground font-medium">
               Secretário(a)
             </span>
           )}
-          {!isSecretary && <div className="mb-2" />}
+          <LinkButton href="/conta" variant="ghost" className="w-full justify-start">
+            {mounted ? <UserCircle className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
+            Minha Conta
+          </LinkButton>
           <form action={logout}>
             <Button variant="outline" className="w-full" type="submit">
               {mounted ? <LogOut className="mr-2 h-4 w-4" /> : iconPlaceholder('mr-2 inline-block h-4 w-4')}
@@ -87,6 +90,7 @@ export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: 
             { href: '/agenda', label: 'Agenda', icon: <Calendar className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
             { href: '/engajamento', label: 'Engajamento', icon: <TrendingUp className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
             ...(!isSecretary ? [{ href: '/configuracoes', label: 'Meu Grupo', icon: <Settings className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' }] : []),
+            { href: '/conta', label: 'Conta', icon: <UserCircle className="h-5 w-5" />, placeholder: 'h-5 w-5 inline-block' },
           ].map(({ href, label, icon, placeholder: ph }) => (
             <Link
               key={href}
@@ -97,6 +101,12 @@ export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: 
               <span className="text-[10px] mt-1 whitespace-nowrap">{label}</span>
             </Link>
           ))}
+          <form action={logout} className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 shrink-0">
+            <button type="submit" className="flex flex-col items-center justify-center w-full text-muted-foreground hover:text-destructive transition-colors">
+              {mounted ? <LogOut className="h-5 w-5" /> : iconPlaceholder('h-5 w-5 inline-block')}
+              <span className="text-[10px] mt-1 whitespace-nowrap">Sair</span>
+            </button>
+          </form>
         </div>
       </nav>
     </>
