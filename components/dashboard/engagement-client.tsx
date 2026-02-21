@@ -14,6 +14,8 @@ import { TrendingUp, TrendingDown, Award, CalendarSearch, Loader2, Users, CheckC
 
 type Period = 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'yearly';
 
+type MemberFilter = 'total' | 'participants' | 'visitors';
+
 interface PeriodDataPoint {
   period: string;
   periodStart: string;
@@ -77,7 +79,37 @@ const PERIOD_OPTIONS: { value: Period; label: string; desc: string }[] = [
   { value: 'yearly', label: 'Anual', desc: 'Últimos 3 anos' },
 ];
 
+const MEMBER_FILTER_OPTIONS: { value: MemberFilter; label: string }[] = [
+  { value: 'total', label: 'Total' },
+  { value: 'participants', label: 'Participantes' },
+  { value: 'visitors', label: 'Visitantes' },
+];
+
 // ─── Componentes internos ─────────────────────────────────────────────────────
+
+function MemberFilterSelector({
+  value,
+  onChange,
+}: {
+  value: MemberFilter;
+  onChange: (v: MemberFilter) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-muted-foreground mr-1">Tipo:</span>
+      {MEMBER_FILTER_OPTIONS.map((opt) => (
+        <Button
+          key={opt.value}
+          variant={value === opt.value ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
 
 function PeriodSelector({
   selected,
@@ -315,7 +347,7 @@ interface MeetingDetailResponse {
   summary: MeetingSummary;
 }
 
-function MeetingDetailView({ meetings }: { meetings: MeetingItem[] }) {
+function MeetingDetailView({ meetings, memberFilter }: { meetings: MeetingItem[]; memberFilter: MemberFilter }) {
   const [selectedId, setSelectedId] = useState<string>(meetings[0]?.id ?? '');
   const [detail, setDetail] = useState<MeetingDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -324,10 +356,10 @@ function MeetingDetailView({ meetings }: { meetings: MeetingItem[] }) {
     if (!id) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/engagement?meeting_id=${id}`);
+      const res = await fetch(`/api/engagement?meeting_id=${id}&member_filter=${memberFilter}`);
       if (res.ok) setDetail(await res.json());
     } finally { setLoading(false); }
-  }, []);
+  }, [memberFilter]);
 
   useEffect(() => { if (selectedId) fetchDetail(selectedId); }, [selectedId, fetchDetail]);
 
@@ -445,7 +477,7 @@ function MeetingDetailView({ meetings }: { meetings: MeetingItem[] }) {
 
 // ─── Visualização por nome de encontro (multi-ocorrência) ─────────────────────
 
-function TitleGroupView({ groupId }: { groupId?: string | null }) {
+function TitleGroupView({ groupId, memberFilter }: { groupId?: string | null; memberFilter: MemberFilter }) {
   const [titleGroups, setTitleGroups] = useState<TitleGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
@@ -484,7 +516,7 @@ function TitleGroupView({ groupId }: { groupId?: string | null }) {
     setLoadingDetail(true);
     setSelectedTitle(title);
     try {
-      let url = `/api/engagement?title_group=${encodeURIComponent(title)}`;
+      let url = `/api/engagement?title_group=${encodeURIComponent(title)}&member_filter=${memberFilter}`;
       if (groupId) url += `&group_id=${groupId}`;
       const res = await fetch(url);
       if (!res.ok) {
@@ -502,7 +534,11 @@ function TitleGroupView({ groupId }: { groupId?: string | null }) {
     } finally {
       setLoadingDetail(false);
     }
-  }, [groupId]);
+  }, [groupId, memberFilter]);
+
+  useEffect(() => {
+    if (selectedTitle) fetchGroupDetail(selectedTitle);
+  }, [memberFilter]);
 
   if (loadingGroups) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -637,6 +673,7 @@ interface EngagementClientProps {
 
 export function EngagementClient({ groupId }: EngagementClientProps = {}) {
   const [view, setView] = useState<Period | 'meeting' | 'title_group'>('monthly');
+  const [memberFilter, setMemberFilter] = useState<MemberFilter>('total');
   const [titleFilter, setTitleFilter] = useState('');
   const [periodData, setPeriodData] = useState<PeriodDataPoint[]>([]);
   const [memberStats, setMemberStats] = useState<MemberStat[]>([]);
@@ -647,7 +684,7 @@ export function EngagementClient({ groupId }: EngagementClientProps = {}) {
   const fetchPeriodData = useCallback(async (period: Period, title?: string) => {
     setLoading(true);
     try {
-      let url = `/api/engagement?period=${period}`;
+      let url = `/api/engagement?period=${period}&member_filter=${memberFilter}`;
       if (groupId) url += `&group_id=${groupId}`;
       if (title?.trim()) url += `&title_filter=${encodeURIComponent(title.trim())}`;
       const res = await fetch(url);
@@ -658,7 +695,7 @@ export function EngagementClient({ groupId }: EngagementClientProps = {}) {
       setMeetingList(data.meetingList ?? []);
       setHasData((data.periodData ?? []).length > 0 || (data.meetingList ?? []).length > 0);
     } finally { setLoading(false); }
-  }, [groupId]);
+  }, [groupId, memberFilter]);
 
   const [debouncedTitle, setDebouncedTitle] = useState(titleFilter);
   useEffect(() => {
@@ -672,7 +709,6 @@ export function EngagementClient({ groupId }: EngagementClientProps = {}) {
     } else if (view === 'meeting') {
       fetchPeriodData('monthly', debouncedTitle);
     }
-    // title_group view fetches its own data
   }, [view, fetchPeriodData, debouncedTitle]);
 
   const periodLabel = PERIOD_OPTIONS.find((o) => o.value === view)?.label ?? '';
@@ -693,10 +729,11 @@ export function EngagementClient({ groupId }: EngagementClientProps = {}) {
           titleFilter={titleFilter}
           onTitleFilterChange={setTitleFilter}
         />
+        <MemberFilterSelector value={memberFilter} onChange={setMemberFilter} />
       </div>
 
       {view === 'title_group' ? (
-        <TitleGroupView groupId={groupId} />
+        <TitleGroupView groupId={groupId} memberFilter={memberFilter} />
       ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -707,7 +744,7 @@ export function EngagementClient({ groupId }: EngagementClientProps = {}) {
           <p className="text-sm text-muted-foreground mt-1">Registre presenças na página de Chamada para ver as análises aqui.</p>
         </div>
       ) : view === 'meeting' ? (
-        <MeetingDetailView meetings={meetingList} />
+        <MeetingDetailView meetings={meetingList} memberFilter={memberFilter} />
       ) : (
         <>
           <StatsCards periodData={periodData} perfectAttendance={perfectAttendance} memberStats={memberStats} />

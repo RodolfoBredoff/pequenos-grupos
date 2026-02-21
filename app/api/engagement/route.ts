@@ -5,6 +5,8 @@ import { queryMany, queryOne } from '@/lib/db/postgres';
 
 export type Period = 'weekly' | 'monthly' | 'quarterly' | 'semiannual' | 'yearly';
 
+export type MemberFilter = 'total' | 'participants' | 'visitors';
+
 function getPeriodConfig(period: Period): { interval: string; truncate: string; limit: number } {
   switch (period) {
     case 'weekly':
@@ -67,6 +69,11 @@ export async function GET(request: Request) {
     const titleFilter = searchParams.get('title_filter')?.trim() || null;
     const mode = searchParams.get('mode');
     const titleGroup = searchParams.get('title_group')?.trim() || null;
+    const memberFilterParam = searchParams.get('member_filter');
+    const memberFilter: MemberFilter =
+      memberFilterParam === 'participants' || memberFilterParam === 'visitors'
+        ? memberFilterParam
+        : 'total';
 
     let groupId: string | null = leader?.group_id ?? null;
     let isCoordinator = false;
@@ -174,9 +181,16 @@ export async function GET(request: Request) {
 
       const totalGuests = guestCounts.reduce((s, r) => s + r.cnt, 0);
 
-      // Aggregate stats per member
+      const filteredAttendance =
+        memberFilter === 'participants'
+          ? attendance.filter((a) => a.member_type === 'participant')
+          : memberFilter === 'visitors'
+            ? attendance.filter((a) => a.member_type === 'visitor')
+            : attendance;
+      const guestsForTotal = memberFilter === 'total' || memberFilter === 'visitors' ? totalGuests : 0;
+
       const memberMap = new Map<string, { name: string; type: string; presences: number; absences: number }>();
-      for (const att of attendance) {
+      for (const att of filteredAttendance) {
         if (!memberMap.has(att.member_id)) {
           memberMap.set(att.member_id, { name: att.member_name, type: att.member_type, presences: 0, absences: 0 });
         }
@@ -188,9 +202,9 @@ export async function GET(request: Request) {
         .map((m) => ({ ...m, taxa: m.presences + m.absences > 0 ? Math.round((m.presences / (m.presences + m.absences)) * 100) : 0 }))
         .sort((a, b) => b.presences - a.presences);
 
-      const totalPresent = attendance.filter((a) => a.is_present).length + totalGuests;
-      const totalAbsent = attendance.filter((a) => !a.is_present).length;
-      const total = attendance.length + totalGuests;
+      const totalPresent = filteredAttendance.filter((a) => a.is_present).length + guestsForTotal;
+      const totalAbsent = filteredAttendance.filter((a) => !a.is_present).length;
+      const total = filteredAttendance.length + guestsForTotal;
 
       return NextResponse.json({
         mode: 'title_group',
@@ -252,17 +266,24 @@ export async function GET(request: Request) {
         ),
       ]);
 
-      const present = attendance.filter((a) => a.is_present);
-      const absent = attendance.filter((a) => !a.is_present);
-      const guestCount = guests.length;
-      const totalPresent = present.length + guestCount;
-      const total = attendance.length + guestCount;
+      const filteredAttendance =
+        memberFilter === 'participants'
+          ? attendance.filter((a) => a.member_type === 'participant')
+          : memberFilter === 'visitors'
+            ? attendance.filter((a) => a.member_type === 'visitor')
+            : attendance;
+      const includeGuests = memberFilter === 'total' || memberFilter === 'visitors';
+      const filteredGuests = includeGuests ? guests : [];
+      const present = filteredAttendance.filter((a) => a.is_present);
+      const absent = filteredAttendance.filter((a) => !a.is_present);
+      const totalPresent = present.length + filteredGuests.length;
+      const total = filteredAttendance.length + filteredGuests.length;
 
       return NextResponse.json({
         mode: 'meeting',
         meeting,
-        attendance,
-        guests,
+        attendance: filteredAttendance,
+        guests: filteredGuests,
         summary: {
           total,
           present: totalPresent,
@@ -352,6 +373,14 @@ export async function GET(request: Request) {
     ]);
 
     const guestCountByMeeting = new Map(guestCounts.map((r) => [r.meeting_id, r.cnt]));
+    const includeGuestsInPeriod = memberFilter === 'total' || memberFilter === 'visitors';
+
+    const attendanceByType =
+      memberFilter === 'participants'
+        ? attendance.filter((a) => a.member_type === 'participant')
+        : memberFilter === 'visitors'
+          ? attendance.filter((a) => a.member_type === 'visitor')
+          : attendance;
 
     // Agrupar por período
     const periodMap = new Map<string, { presentes: number; ausentes: number; meetingCount: number }>();
@@ -363,7 +392,7 @@ export async function GET(request: Request) {
       }
       periodMap.get(key)!.meetingCount++;
 
-      const meetingAtt = attendance.filter((a) => a.meeting_id === meeting.id);
+      const meetingAtt = attendanceByType.filter((a) => a.meeting_id === meeting.id);
       for (const att of meetingAtt) {
         if (att.is_present) {
           periodMap.get(key)!.presentes++;
@@ -371,8 +400,10 @@ export async function GET(request: Request) {
           periodMap.get(key)!.ausentes++;
         }
       }
-      const guestsInMeeting = guestCountByMeeting.get(meeting.id) ?? 0;
-      periodMap.get(key)!.presentes += guestsInMeeting;
+      if (includeGuestsInPeriod) {
+        const guestsInMeeting = guestCountByMeeting.get(meeting.id) ?? 0;
+        periodMap.get(key)!.presentes += guestsInMeeting;
+      }
     }
 
     // Construir array de dados por período, ordenado
@@ -389,10 +420,10 @@ export async function GET(request: Request) {
           : 0,
       }));
 
-    // Estatísticas por membro (todo o período)
+    // Estatísticas por membro (todo o período), já filtrado por tipo
     const memberMap = new Map<string, { name: string; type: string; presences: number; absences: number }>();
 
-    for (const att of attendance) {
+    for (const att of attendanceByType) {
       if (!memberMap.has(att.member_id)) {
         memberMap.set(att.member_id, {
           name: att.member_name,
