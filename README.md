@@ -267,11 +267,11 @@ git push origin main
 ### 🚀 Início Rápido
 - **[`QUICKSTART.md`](./QUICKSTART.md)** ⭐ - **Comece aqui!** Guia rápido para setup local e AWS
 
-### 📖 Guias Detalhados
-- [`SETUP_LOCAL.md`](./SETUP_LOCAL.md) - Guia completo de setup local
-- [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md) - Guia completo passo a passo de deploy AWS
-- [`DB_MIGRATION.md`](./DB_MIGRATION.md) - Guia de migração para RDS
-- [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md) - Guia de migração de dados do Supabase
+### 📖 Guias
+- [`SETUP_LOCAL.md`](./SETUP_LOCAL.md) - Setup local
+- [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md) - Deploy AWS passo a passo
+- [`DB_MIGRATION.md`](./DB_MIGRATION.md) - Migração de dados e RDS
+- [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md) - Migração a partir do Supabase
 - [`FASE_2_PROGRESS.md`](./FASE_2_PROGRESS.md) - Detalhes técnicos da migração
 
 ## 📝 Licença
