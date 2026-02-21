@@ -8,27 +8,27 @@ export default async function PessoasPage() {
   const members = await getMembersByLeaderGroup();
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div className="space-y-6 w-full min-w-0">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Pessoas</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Pessoas</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             {members?.length || 0} {members?.length === 1 ? 'pessoa' : 'pessoas'} no grupo
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-wrap gap-2">
           {members && members.length > 0 && (
             <BroadcastDialogClient members={members} />
           )}
-          <LinkButton href="/pessoas/novo">
-            <UserPlus className="mr-2 h-4 w-4" />
+          <LinkButton href="/pessoas/novo" className="w-full sm:w-auto">
+            <UserPlus className="mr-2 h-4 w-4 shrink-0" />
             Nova Pessoa
           </LinkButton>
         </div>
       </div>
 
       {members && members.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {members.map((member) => (
             <PessoaCard key={member.id} member={member} />
           ))}

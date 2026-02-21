@@ -1,0 +1,87 @@
+import { NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth/session';
+import { getCurrentLeader } from '@/lib/db/queries';
+import { queryMany, queryOne } from '@/lib/db/postgres';
+
+/**
+ * GET /api/members/[id]/attendance
+ * Retorna estatísticas de presença do membro: total de encontros e frequência por nome de encontro
+ */
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAuth();
+    const leader = await getCurrentLeader();
+    if (!leader?.group_id) {
+      return NextResponse.json({ error: 'Líder não vinculado a um grupo' }, { status: 400 });
+    }
+
+    const { id: memberId } = await params;
+
+    // Verificar se o membro pertence ao grupo do líder
+    const member = await queryOne<{ id: string; group_id: string }>(
+      `SELECT id, group_id FROM members WHERE id = $1 AND is_active = TRUE`,
+      [memberId]
+    );
+    if (!member || member.group_id !== leader.group_id) {
+      return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 });
+    }
+
+    // Total de encontros em que o membro teve registro de presença (presente ou ausente)
+    const totalStats = await queryOne<{ total_meetings: number; present_count: number }>(
+      `SELECT
+         COUNT(DISTINCT a.meeting_id)::int AS total_meetings,
+         COUNT(*) FILTER (WHERE a.is_present = TRUE)::int AS present_count
+       FROM attendance a
+       JOIN meetings m ON m.id = a.meeting_id
+       WHERE a.member_id = $1 AND m.group_id = $2 AND m.is_cancelled = FALSE AND m.meeting_date <= CURRENT_DATE`,
+      [memberId, leader.group_id]
+    );
+
+    // Por nome de encontro: quantos encontros com esse nome, quantas vezes presente
+    const byTitle = await queryMany<{
+      title: string;
+      meeting_count: number;
+      present_count: number;
+      rate: number;
+    }>(
+      `WITH meetings_with_title AS (
+         SELECT id, TRIM(title) AS title
+         FROM meetings
+         WHERE group_id = $2 AND is_cancelled = FALSE AND meeting_date <= CURRENT_DATE
+           AND title IS NOT NULL AND TRIM(title) <> ''
+       ),
+       presence_per_meeting AS (
+         SELECT mwt.title, mwt.id AS meeting_id,
+                (a.member_id IS NOT NULL AND a.is_present) AS was_present
+         FROM meetings_with_title mwt
+         LEFT JOIN attendance a ON a.meeting_id = mwt.id AND a.member_id = $1
+       )
+       SELECT
+         title,
+         COUNT(*)::int AS meeting_count,
+         COUNT(*) FILTER (WHERE was_present)::int AS present_count,
+         CASE WHEN COUNT(*) > 0 THEN ROUND(100.0 * COUNT(*) FILTER (WHERE was_present) / COUNT(*), 0)::int ELSE 0 END AS rate
+       FROM presence_per_meeting
+       GROUP BY title
+       ORDER BY present_count DESC, meeting_count DESC`,
+      [memberId, leader.group_id]
+    );
+
+    return NextResponse.json({
+      totalMeetings: totalStats?.total_meetings ?? 0,
+      totalPresent: totalStats?.present_count ?? 0,
+      byTitle: byTitle.map((row) => ({
+        title: row.title,
+        meetingCount: row.meeting_count,
+        presentCount: row.present_count,
+        rate: Number(row.rate),
+      })),
+    });
+  } catch (error) {
+    console.error('Erro ao buscar presença do membro:', error);
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+  }
+}

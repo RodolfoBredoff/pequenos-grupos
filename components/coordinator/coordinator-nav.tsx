@@ -67,29 +67,31 @@ export function CoordinatorNav({ orgName, coordinatorName }: CoordinatorNavProps
         </div>
       </aside>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-pb">
-        <div className="flex overflow-x-auto scrollbar-hide px-1 py-1">
-          {navItems.map(({ href, label, icon, ph }) => (
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-pb">
+        <div className="flex justify-around items-stretch min-h-14 px-0.5 py-1">
+          {[
+            { href: '/org/dashboard', label: 'Início', icon: <Home className="h-5 w-5 shrink-0" /> },
+            { href: '/org/grupos', label: 'Grupos', icon: <Group className="h-5 w-5 shrink-0" /> },
+            { href: '/org/lideres', label: 'Líderes', icon: <Users className="h-5 w-5 shrink-0" /> },
+            { href: '/org/engajamento', label: 'Engaj.', icon: <TrendingUp className="h-5 w-5 shrink-0" /> },
+            { href: '/org/conta', label: 'Conta', icon: <UserCircle className="h-5 w-5 shrink-0" /> },
+          ].map(({ href, label, icon }) => (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center py-2 px-3 min-w-[70px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary hover:bg-accent active:text-primary shrink-0"
+              className="flex flex-col items-center justify-center flex-1 min-w-0 py-1.5 px-0.5 rounded-lg text-muted-foreground transition-colors hover:text-primary hover:bg-accent active:text-primary"
             >
-              {mounted ? icon : iconPlaceholder(ph)}
-              <span className="text-[11px] font-medium mt-1 whitespace-nowrap">{label}</span>
+              {mounted ? icon : <span className="h-5 w-5 inline-block shrink-0" aria-hidden />}
+              <span className="text-[10px] font-medium mt-0.5 truncate max-w-full">{label}</span>
             </Link>
           ))}
-          <Link
-            href="/org/conta"
-            className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 rounded-lg text-muted-foreground transition-colors hover:text-primary active:text-primary shrink-0"
-          >
-            {mounted ? <UserCircle className="h-5 w-5" /> : <span className="h-5 w-5 inline-block" />}
-            <span className="text-[10px] mt-1 whitespace-nowrap">Conta</span>
-          </Link>
-          <form action={logout} className="flex flex-col items-center justify-center py-2 px-3 min-w-[64px] flex-1 shrink-0">
-            <button type="submit" className="flex flex-col items-center justify-center w-full text-muted-foreground hover:text-destructive transition-colors">
-              {mounted ? <LogOut className="h-5 w-5" /> : <span className="h-5 w-5 inline-block" />}
-              <span className="text-[10px] mt-1 whitespace-nowrap">Sair</span>
+          <form action={logout} className="flex flex-1 min-w-0">
+            <button
+              type="submit"
+              className="flex flex-col items-center justify-center flex-1 min-w-0 py-1.5 px-0.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg"
+            >
+              {mounted ? <LogOut className="h-5 w-5 shrink-0" /> : <span className="h-5 w-5 inline-block shrink-0" aria-hidden />}
+              <span className="text-[10px] font-medium mt-0.5">Sair</span>
             </button>
           </form>
         </div>

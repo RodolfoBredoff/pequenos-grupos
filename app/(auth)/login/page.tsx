@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Mail, Lock } from 'lucide-react';
+import { Loader2, Mail, Lock, Shield } from 'lucide-react';
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -223,6 +224,15 @@ function LoginForm() {
             </div>
           )}
         </form>
+        <div className="mt-4 pt-4 border-t text-center">
+          <Link
+            href="/admin/login"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <Shield className="h-4 w-4" />
+            Acesso administrador
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );

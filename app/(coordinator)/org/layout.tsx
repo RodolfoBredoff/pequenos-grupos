@@ -40,14 +40,14 @@ export default async function CoordinatorLayout({
           coordinatorName={coordinator.full_name || user.email || ''}
         />
 
-        <main className="flex-1">
-          <div className="container max-w-7xl mx-auto p-6 lg:p-8">
+        <main className="flex-1 min-w-0 w-full">
+          <div className="container max-w-7xl mx-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 pb-24 lg:pb-8">
             {children}
           </div>
         </main>
       </div>
 
-      <div className="lg:hidden h-20" />
+      <div className="lg:hidden h-16 flex-shrink-0" />
     </div>
   );
 }
