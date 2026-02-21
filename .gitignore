@@ -63,3 +63,11 @@ aws/terraform/*.auto.tfvars
 credentials
 *.pem
 *.key
+
+# Documentação opcional (mantida só localmente)
+CHANGELOG.md
+FUNCIONALIDADES_COMPLETAS.md
+INDICE_COMPLETO.md
+PROJECT_SUMMARY.md
+PROJETO_COMPLETO.md
+TESTE_FUNCIONALIDADES_BONUS.md
