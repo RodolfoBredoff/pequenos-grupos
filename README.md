@@ -1,18 +1,20 @@
-# Pequenos Grupos Manager - MVP V1.0
+# Pequenos Grupos Manager
 
 Sistema de gestão para Pequenos Grupos de Estudo, desenvolvido como Progressive Web App (PWA) com Next.js 15 e PostgreSQL.
 
 ## 🎯 Características Principais
 
 - ✅ **Gestão de Pessoas**: CRUD completo com classificação (Participante/Visitante)
-- ✅ **Agenda Inteligente**: Geração automática com flexibilidade manual
-- ✅ **Chamada Digital**: Interface simples para registro de presença
-- ✅ **Alertas Automáticos**: Notificações de faltas consecutivas e aniversários
+- ✅ **Visitantes não cadastrados**: Na chamada, registrar nome e telefone (opcional); contam como presença; conversão em membro após mais de um encontro
+- ✅ **Agenda**: Geração automática, edição manual, tipos (regular/evento especial), histórico com contagem de presenças (membros + visitantes)
+- ✅ **Chamada Digital**: Lista de membros + lista de visitantes não cadastrados; contadores de presentes/ausentes; salvar em lote
+- ✅ **Engajamento**: Gráficos por período, por encontro ou por nome; filtro por tipo (Total / Participantes / Visitantes); contagem inclui visitantes não cadastrados
+- ✅ **Alertas**: Notificações de faltas consecutivas e aniversários (cron)
 - ✅ **Integração WhatsApp**: Links diretos para contato
-- ✅ **PWA**: Funciona como app nativo, instalável em iOS/Android
-- ✅ **Offline-Ready**: Service Worker para cache e melhor experiência
-- ✅ **Multi-tenancy**: Suporte para múltiplos grupos e líderes
-- ✅ **Segurança**: Autenticação própria com JWT e Magic Link
+- ✅ **PWA**: Instalável em iOS/Android; navbar mobile com ícones maiores e rolagem horizontal
+- ✅ **Multi-tenancy**: Múltiplos grupos, líderes, organizações
+- ✅ **Roles**: Líder (grupo), Secretário (somente leitura/ chamada), Coordenador (organização), Admin (sistema)
+- ✅ **Segurança**: Autenticação com JWT, Magic Link e login com senha; cookies httpOnly
 
 ## 🚀 Stack Tecnológica
 
@@ -21,267 +23,239 @@ Sistema de gestão para Pequenos Grupos de Estudo, desenvolvido como Progressive
 - **React 19**
 - **TypeScript**
 - **Tailwind CSS**
-- **shadcn/ui** (componentes)
-- **next-pwa** (PWA support)
+- **shadcn/ui**
+- **next-pwa** (PWA)
+- **Recharts** (gráficos de engajamento)
 
 ### Backend
-- **PostgreSQL 15+** (banco de dados)
-- **Node.js** (runtime)
-- **JWT** (autenticação)
-- **Magic Link** (login sem senha)
+- **PostgreSQL 15+**
+- **Node.js**
+- **JWT** + **Magic Link** + senha (troca de senha na conta)
 
-### Deploy (Fase 1 - Infraestrutura AWS)
-- **AWS EC2** (t2.micro/t3.micro - Free Tier)
-- **AWS CloudFront** (CDN + SSL gratuito)
-- **PostgreSQL em Docker** (container na EC2)
-- **AWS SSM Parameter Store** (gerenciamento de secrets)
+### Deploy (AWS)
+- **EC2** (t2.micro/t3.micro – Free Tier)
+- **CloudFront** (CDN + SSL)
+- **PostgreSQL em Docker** (EC2)
+- **AWS SSM Parameter Store** (secrets)
 - **GitHub Actions** (CI/CD com OIDC)
 
 ## 📦 Pré-requisitos
 
-- Node.js 18+ (com npm)
+- Node.js 18+
 - PostgreSQL 15+ (local ou remoto)
-- Docker e Docker Compose (opcional, para PostgreSQL)
+- Docker e Docker Compose (opcional, para PostgreSQL local)
 - Conta AWS (para deploy em produção)
 
 ## 🚀 Quick Start
 
-**📖 Comece aqui:** [`QUICKSTART.md`](./QUICKSTART.md)
+**📖 Guia rápido:** [`QUICKSTART.md`](./QUICKSTART.md)
 
-Guia rápido para:
-- ✅ Setup local em **5-10 minutos**
-- ☁️ Setup AWS em **30-60 minutos**
-- 🐛 Troubleshooting rápido
-
-### Resumo Ultra-Rápido (Local)
+### Resumo (local)
 
 ```bash
-# 1. Instalar dependências
+# 1. Dependências
 npm install
 
-# 2. Iniciar PostgreSQL (Docker)
+# 2. PostgreSQL (Docker)
 docker run -d --name pequenos-grupos-db \
   -e POSTGRES_PASSWORD=senha_segura \
   -e POSTGRES_DB=pequenos_grupos \
   -p 5432:5432 postgres:15-alpine
 
-# 3. Executar migrações
+# 3. Migrações (em ordem: 001 depois 002…009)
 docker exec -i pequenos-grupos-db psql -U postgres -d pequenos_grupos < db/migrations/001_initial_schema.sql
+docker exec -i pequenos-grupos-db psql -U postgres -d pequenos_grupos < db/migrations/002_admin_and_meeting_time.sql
+# ... 003 a 008 conforme necessário ...
+docker exec -i pequenos-grupos-db psql -U postgres -d pequenos_grupos < db/migrations/009_guest_visitors.sql
 
-# 4. Configurar .env.local (copie de .env.example e ajuste)
+# 4. Configurar ambiente
+cp .env.example .env.local
+# Ajuste DATABASE_*, APP_SECRET, e opcionalmente NEXT_PUBLIC_APP_URL
 
-# 5. Criar primeiro usuário
+# 5. Primeiro usuário (líder + grupo)
 ./scripts/setup-database.sh
 
-# 6. Rodar aplicação
+# 6. Rodar
 npm run dev
 ```
 
 Acesse: http://localhost:3000
 
-## 🎨 Criar Primeiro Usuário (Leader)
+## ⚙️ Configuração (.env.local)
 
-Veja [`SETUP_LOCAL.md`](./SETUP_LOCAL.md) para instruções detalhadas.
+Copie `.env.example` para `.env.local`. Principais variáveis:
 
-Resumo:
-1. Execute o script de setup: `./scripts/setup-database.sh`
-2. Escolha criar dados iniciais
-3. Use o email cadastrado para fazer login
+| Variável | Obrigatório | Descrição |
+|----------|-------------|-----------|
+| `DATABASE_URL` | Sim | `postgresql://user:password@host:port/pequenos_grupos` |
+| `APP_SECRET` | Sim | Chave para JWT/sessões (ex.: `openssl rand -base64 32`) |
+| `NODE_ENV` | Sim | `development` ou `production` |
+| `NEXT_PUBLIC_APP_URL` | Produção | URL pública (Magic Link, redirects) |
+| `CRON_SECRET` | Cron | Proteção da rota `/api/cron/check-alerts` |
+| `AWS_*` | Deploy | SSM/SES conforme [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md) |
 
-## 📱 Deploy em Produção (AWS)
+Em produção na EC2, a app pode ler parâmetros do **AWS SSM Parameter Store** (ver guia de deploy).
 
-**Para deploy com custo zero (Free Tier) e máxima segurança:**
+## 📊 Banco de Dados
 
-📖 **Veja o guia completo passo a passo:** [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md)
+### Migrações (`db/migrations/`)
 
-### Arquitetura de Deploy
+| Arquivo | Conteúdo |
+|---------|----------|
+| `001_initial_schema.sql` | Schema inicial (users, sessions, leaders, groups, members, meetings, attendance, notifications) |
+| `002_admin_and_meeting_time.sql` | Admin, organizações, meeting_time em meetings |
+| `003_*`, `004_*`, `007_*` | birth_date (opcional/obrigatório) |
+| `005_secretary_role.sql` | Papel secretário |
+| `006_coordinator_role.sql` | Papel coordenador, organization_id em leaders |
+| `008_meeting_type.sql` | meeting_type (regular / special_event) |
+| `009_guest_visitors.sql` | Visitantes não cadastrados: `guest_visitors`, `attendance_guests` |
 
-```
-CloudFront (SSL/HTTPS)
-    ↓
-EC2 (t2.micro Free Tier)
-    ├── Next.js App (Docker)
-    └── PostgreSQL (Docker + EBS Volume)
-```
-
-### Resumo Rápido
-
-1. **Siga o guia completo:** [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md)
-   - Criação de EC2, Security Groups, IAM Roles
-   - Configuração de CloudFront e SSL
-   - Setup de SSM Parameter Store
-   - Configuração de GitHub Actions OIDC
-
-2. **Deploy via GitHub Actions:**
-   - Push para `main` = deploy automático
-   - CI/CD com OIDC (sem Access Keys)
-
-3. **Benefícios:**
-   - ✅ $0/mês (Free Tier)
-   - ✅ CI/CD gratuito (GitHub Actions)
-   - ✅ Secrets no AWS SSM Parameter Store
-   - ✅ CloudFront CDN global + SSL gratuito
-   - ✅ IAM Roles only (zero Access Keys)
-   - ✅ PostgreSQL com persistência EBS
-
-### Migração Futura
-
-📖 **Guia de migração para RDS:** [`DB_MIGRATION.md`](./DB_MIGRATION.md)
-
-📖 **Guia de migração de dados do Supabase:** [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md)
-
-## 🔒 Segurança
-
-- ✅ Autenticação via Magic Link (login sem senha)
-- ✅ JWT tokens para sessões
-- ✅ Cookies seguros (httpOnly, secure)
-- ✅ Líderes só acessam dados do próprio grupo (verificação na aplicação)
-- ✅ HTTPS obrigatório em produção
-- ✅ Secrets no AWS SSM Parameter Store
-
-## 📊 Estrutura do Banco de Dados
+### Esquema resumido
 
 ```
-users (autenticação)
-├── sessions (sessões ativas)
-├── magic_link_tokens (tokens temporários)
-└── leaders (líderes vinculados)
-    └── groups (grupos de estudo)
-        ├── members (participantes e visitantes)
-        ├── meetings (agenda de encontros)
-        │   └── attendance (presença/falta)
-        └── notifications (alertas e avisos)
+users, sessions, magic_link_tokens
+organizations
+groups (default_meeting_day, default_meeting_time)
+leaders (group_id, organization_id, role: leader|secretary|coordinator)
+members (group_id, full_name, phone, birth_date, member_type: participant|visitor)
+meetings (group_id, meeting_date, title, meeting_time, meeting_type, is_cancelled)
+attendance (meeting_id, member_id, is_present)
+guest_visitors (group_id, full_name, phone)        ← 009
+attendance_guests (meeting_id, guest_id)           ← 009
+notifications (group_id, ...)
 ```
 
 ## 🎯 Funcionalidades
 
-### 1. Dashboard
-- Estatísticas do grupo (total, participantes, visitantes)
+### 1. Dashboard (líder/secretário)
+- Total de pessoas, participantes, visitantes
 - Alertas de faltas consecutivas (2+)
-- Notificações de aniversários
+- Aniversariantes
+- Próximos encontros
 
-### 2. Gestão de Pessoas
-- Cadastro: Nome, Telefone, Data de Nascimento, Tipo
-- Edição e listagem
-- Badge de aniversariante do dia
-- Botão de WhatsApp em cada pessoa
+### 2. Pessoas
+- CRUD: nome, telefone, data de nascimento, tipo (Participante/Visitante)
+- Aniversariante do dia
+- Botão WhatsApp
+- Estatísticas de presença por membro
 
 ### 3. Chamada
-- Lista de membros ativos
-- Checkbox de presença/ausência
-- Contadores de presentes/ausentes
-- Salvar em lote
+- Seletor de encontro (por data/título)
+- Lista de membros: checkbox presente/ausente
+- **Visitante não cadastrado**: nome (obrigatório), telefone (opcional); adicionar à lista do encontro
+- Contagem: presentes = membros marcados + visitantes adicionados
+- Salvar em lote (membros + visitantes)
+- **Converter em membro**: para visitante já salvo (com mais de um encontro), criar membro tipo visitante
 
 ### 4. Agenda
 - Próximas reuniões (30 dias)
-- Histórico recente (10 últimas)
-- Configuração do grupo (dia/horário)
-- Suporte para marcar "semanas de folga"
+- Histórico (10 últimas) com **contagem de presenças** (membros + visitantes)
+- Edição: data, hora, título, notas, tipo (regular/evento especial)
+- Configuração do grupo (dia/horário padrão) – só líder
 
-### 5. Dashboard de Engajamento
-- Gráficos de presença mensal (últimos 6 meses)
-- Top 5 mais presentes
-- Top 5 mais ausentes
-- Membros com 100% de presença
+### 5. Engajamento
+- **Filtros**: por período (semanal/mensal/trimestral/semestral/anual), por encontro, por nome de encontro
+- **Subfiltro por tipo**: Total | Participantes | Visitantes (em todos os modos)
+- Gráficos e taxas consideram visitantes não cadastrados quando aplicável
+- Top presentes/ausentes, 100% presença
+- Coordenador e admin podem filtrar por grupo
 
-### 6. Notificações Automáticas
-- **Faltas Consecutivas**: Alerta após 2 faltas seguidas
-- **Aniversários**: Notificação no dia do aniversário
-- Execução diária via cron job (`/api/webhooks/cron`)
+### 6. Notificações e cron
+- **Faltas consecutivas** (2+)
+- **Aniversários** (dia do aniversário)
+- Cron: `GET /api/webhooks/cron` (ou `/api/cron/check-alerts` com `CRON_SECRET`)
+
+### 7. Conta
+- Troca de senha
+- Dados do perfil
+
+### 8. Admin
+- Organizações, grupos, líderes
+- Criar admin, vincular líder a grupo
+- Visualização de engajamento por grupo
+
+### 9. Coordenador
+- Dashboard da organização
+- Grupos e líderes da organização
+- Engajamento por grupo
+
+## 🔒 Segurança
+
+- Autenticação: Magic Link, login com senha, JWT em cookie (httpOnly, secure em produção)
+- Líder/secretário só acessam o próprio grupo; coordenador, organização; admin, sistema
+- HTTPS em produção; secrets no SSM em deploy AWS
 
 ## 🔧 Desenvolvimento
 
-### Estrutura de Pastas
+### Estrutura principal
 
 ```
 pequenos-grupos/
-├── app/                    # Next.js App Router
-│   ├── (auth)/            # Rotas de autenticação
-│   ├── (dashboard)/       # Rotas protegidas
-│   ├── api/               # API routes
-│   └── globals.css        # Estilos globais
-├── components/            # Componentes React
-│   ├── ui/               # shadcn/ui components
-│   ├── pessoas/          # Componentes de pessoas
-│   ├── chamada/          # Componentes de chamada
-│   └── dashboard/        # Componentes do dashboard
-├── lib/                   # Utilitários
-│   ├── db/               # Cliente PostgreSQL e queries
-│   ├── auth/             # Autenticação (JWT, sessions)
-│   ├── agenda/           # Geração de agenda
-│   ├── alerts/           # Verificação de alertas
-│   ├── aws/              # Clientes AWS (SSM)
-│   ├── utils.ts          # Funções auxiliares
-│   └── constants.ts      # Constantes
-├── hooks/                 # React hooks
-├── types/                 # TypeScript types
-├── db/                    # Migrações PostgreSQL
-│   └── migrations/
-└── public/               # Arquivos estáticos
+├── app/
+│   ├── (auth)/           # Login (magic link, senha)
+│   ├── (dashboard)/      # Líder/secretário: dashboard, pessoas, chamada, agenda, engajamento, conta, configurações
+│   ├── (coordinator)/    # Coordenador: org/dashboard, grupos, líderes, engajamento, conta
+│   ├── admin/            # Admin: login, organizações, grupos, líderes, engajamento
+│   └── api/               # API routes (auth, members, meetings, attendance, guests, engagement, cron, …)
+├── components/            # UI (dashboard, chamada, pessoas, agenda, admin, coordinator, account, pwa, …)
+├── lib/
+│   ├── db/               # postgres.ts, queries.ts
+│   ├── auth/             # session, admin-session, coordinator-session, magic-link, permissions
+│   ├── agenda/           # generator
+│   ├── alerts/           # checker
+│   ├── aws/              # ssm-client
+│   └── supabase/         # client stub (offline/no-op)
+├── hooks/                 # use-offline-sync, use-realtime
+├── db/migrations/         # 001…009
+├── scripts/               # setup-database.sh, create-admin.sh, setup-ec2.sh, fix-app-url.sh, …
+└── public/               # manifest, icons
 ```
 
-### Comandos Úteis
+### Scripts úteis
+
+| Script | Uso |
+|--------|-----|
+| `./scripts/setup-database.sh` | Criar primeiro líder, grupo e dados iniciais |
+| `./scripts/create-admin.sh` | Criar usuário admin |
+| `./scripts/setup-ec2.sh` | Setup inicial da EC2 (Docker, etc.) – ver deploy |
+| `./scripts/apply-migration-002.sh` | Aplicar migração 002 |
+| `./scripts/fix-app-url.sh` | Ajustar URL da app em produção |
+| `./scripts/install-update-origin-service.sh` | Atualizar serviço na EC2 |
+| `./scripts/update-origin.sh` | Atualizar imagem/origin |
+| `fix-leader-group.sql` / `fix-leader.sql` | Ajustes manuais de vínculo líder-grupo |
+
+### Comandos
 
 ```bash
-# Desenvolvimento
-npm run dev
-
-# Build para produção
-npm run build
-
-# Start produção local
-npm run start
-
-# Linting
-npm run lint
-
-# Setup do banco de dados
-./scripts/setup-database.sh
-
-# Deploy via GitHub Actions (automático no push para main)
-git push origin main
+npm run dev      # Desenvolvimento
+npm run build    # Build produção
+npm run start    # Start produção
+npm run lint     # Lint
 ```
+
+## 📱 Deploy (AWS)
+
+📖 **[`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md)** – passo a passo (EC2, CloudFront, SSM, GitHub Actions).
+
+- Push em `main` dispara deploy (GitHub Actions + OIDC).
+- Secrets em SSM; sem Access Keys no repo.
 
 ## 🐛 Troubleshooting
 
-### Erro: "DATABASE_URL não configurada"
-- Verifique se `.env.local` existe
-- Verifique se as variáveis estão corretas
-- Reinicie o servidor de desenvolvimento
-
-### Erro: "Connection refused"
-- Verifique se PostgreSQL está rodando
-- Verifique host, porta e credenciais
-- Teste conexão: `psql -h localhost -U postgres -d pequenos_grupos`
-
-### Erro: "relation does not exist"
-- Execute as migrações: `psql -d pequenos_grupos -f db/migrations/001_initial_schema.sql`
-
-### Magic Link não funciona
-- Verifique `NEXT_PUBLIC_APP_URL` no `.env.local`
-- Em desenvolvimento, o link aparece no console
-- Verifique se o token não expirou (1 hora)
+- **DATABASE_URL**: conferir `.env.local` e reiniciar o servidor.
+- **relation does not exist**: rodar migrações em ordem (001 → 009).
+- **Magic Link**: conferir `NEXT_PUBLIC_APP_URL`; em dev o link pode aparecer no console.
+- **Visitantes não aparecem na chamada/engajamento**: garantir que a migração `009_guest_visitors.sql` foi aplicada.
 
 ## 📚 Documentação
 
-### 🚀 Início Rápido
-- **[`QUICKSTART.md`](./QUICKSTART.md)** ⭐ - **Comece aqui!** Guia rápido para setup local e AWS
-
-### 📖 Guias
-- [`SETUP_LOCAL.md`](./SETUP_LOCAL.md) - Setup local
-- [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md) - Deploy AWS passo a passo
-- [`DB_MIGRATION.md`](./DB_MIGRATION.md) - Migração de dados e RDS
-- [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md) - Migração a partir do Supabase
-- [`FASE_2_PROGRESS.md`](./FASE_2_PROGRESS.md) - Detalhes técnicos da migração
-
-## 📝 Licença
-
-Este projeto foi desenvolvido como MVP. Adapte conforme necessário para seu uso.
-
-## 🤝 Contribuindo
-
-Para sugestões ou melhorias, abra uma issue ou pull request no repositório.
+- **[`QUICKSTART.md`](./QUICKSTART.md)** – comece aqui (setup local e AWS)
+- [`SETUP_LOCAL.md`](./SETUP_LOCAL.md) – setup local
+- [`DEPLOY_AWS_GUIDE.md`](./DEPLOY_AWS_GUIDE.md) – deploy AWS
+- [`DB_MIGRATION.md`](./DB_MIGRATION.md) – migração de dados e RDS
+- [`MIGRATION_GUIDE.md`](./MIGRATION_GUIDE.md) – migração a partir do Supabase
+- [`FASE_2_PROGRESS.md`](./FASE_2_PROGRESS.md) – detalhes técnicos da migração
 
 ---
 
-Desenvolvido com ❤️ para comunidades de Pequenos Grupos
+Desenvolvido para comunidades de Pequenos Grupos
