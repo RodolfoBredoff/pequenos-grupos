@@ -308,9 +308,16 @@ function MemberRankings({ topPresent, topAbsent, perfectAttendance }: {
 
 // ─── Visualização por encontro individual ─────────────────────────────────────
 
+interface MeetingDetailResponse {
+  meeting: MeetingDetail;
+  attendance: MeetingAttendance[];
+  guests?: { full_name: string; phone: string | null }[];
+  summary: MeetingSummary;
+}
+
 function MeetingDetailView({ meetings }: { meetings: MeetingItem[] }) {
   const [selectedId, setSelectedId] = useState<string>(meetings[0]?.id ?? '');
-  const [detail, setDetail] = useState<{ meeting: MeetingDetail; attendance: MeetingAttendance[]; summary: MeetingSummary } | null>(null);
+  const [detail, setDetail] = useState<MeetingDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchDetail = useCallback(async (id: string) => {
@@ -334,6 +341,7 @@ function MeetingDetailView({ meetings }: { meetings: MeetingItem[] }) {
 
   const present = detail?.attendance.filter((a) => a.is_present) ?? [];
   const absent = detail?.attendance.filter((a) => !a.is_present) ?? [];
+  const guests = detail?.guests ?? [];
 
   return (
     <div className="space-y-6">
@@ -388,10 +396,10 @@ function MeetingDetailView({ meetings }: { meetings: MeetingItem[] }) {
               </CardContent>
             </Card>
           )}
-          {detail.attendance.length > 0 ? (
+          {(detail.attendance.length > 0 || guests.length > 0) ? (
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2 text-sm text-green-700"><CheckCircle className="h-4 w-4" />Presentes ({present.length})</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-sm text-green-700"><CheckCircle className="h-4 w-4" />Presentes ({detail.summary.present})</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-1.5">
                     {present.length > 0 ? present.map((a) => (
@@ -399,7 +407,14 @@ function MeetingDetailView({ meetings }: { meetings: MeetingItem[] }) {
                         <p className="text-sm">{a.member_name}</p>
                         <Badge variant="secondary" className="text-xs">{a.member_type === 'participant' ? 'Membro' : 'Visitante'}</Badge>
                       </div>
-                    )) : <p className="text-sm text-muted-foreground">Nenhum presente registrado</p>}
+                    )) : null}
+                    {guests.length > 0 ? guests.map((g, i) => (
+                      <div key={`guest-${i}`} className="flex items-center justify-between py-1 border-b last:border-0">
+                        <p className="text-sm">{g.full_name}{g.phone ? ` — ${g.phone}` : ''}</p>
+                        <Badge variant="outline" className="text-xs">Visitante não cadastrado</Badge>
+                      </div>
+                    )) : null}
+                    {present.length === 0 && guests.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum presente registrado</p> : null}
                   </div>
                 </CardContent>
               </Card>

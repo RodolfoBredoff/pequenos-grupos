@@ -73,9 +73,10 @@ export default async function AdminGroupDetailPage({
     ),
     queryMany<MeetingRow>(
       `SELECT m.id, m.meeting_date, m.is_cancelled,
-              COUNT(a.id) FILTER (WHERE a.is_present = TRUE)::int as attendance_count
+              (COUNT(a.id) FILTER (WHERE a.is_present = TRUE)::int + COALESCE(MAX(ag.guest_count), 0)) as attendance_count
        FROM meetings m
        LEFT JOIN attendance a ON a.meeting_id = m.id
+       LEFT JOIN (SELECT meeting_id, COUNT(*)::int as guest_count FROM attendance_guests GROUP BY meeting_id) ag ON ag.meeting_id = m.id
        WHERE m.group_id = $1
        GROUP BY m.id, m.meeting_date, m.is_cancelled
        ORDER BY m.meeting_date DESC

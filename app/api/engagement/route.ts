@@ -152,19 +152,27 @@ export async function GET(request: Request) {
 
       const meetingIds = meetings.map((m) => m.id);
 
-      const attendance = await queryMany<{
-        meeting_id: string;
-        member_id: string;
-        member_name: string;
-        member_type: string;
-        is_present: boolean;
-      }>(
-        `SELECT a.meeting_id, a.member_id, m.full_name as member_name, m.member_type, a.is_present
-         FROM attendance a
-         JOIN members m ON m.id = a.member_id
-         WHERE a.meeting_id = ANY($1::uuid[])`,
-        [meetingIds]
-      );
+      const [attendance, guestCounts] = await Promise.all([
+        queryMany<{
+          meeting_id: string;
+          member_id: string;
+          member_name: string;
+          member_type: string;
+          is_present: boolean;
+        }>(
+          `SELECT a.meeting_id, a.member_id, m.full_name as member_name, m.member_type, a.is_present
+           FROM attendance a
+           JOIN members m ON m.id = a.member_id
+           WHERE a.meeting_id = ANY($1::uuid[])`,
+          [meetingIds]
+        ),
+        queryMany<{ meeting_id: string; cnt: number }>(
+          `SELECT meeting_id, COUNT(*)::int as cnt FROM attendance_guests WHERE meeting_id = ANY($1::uuid[]) GROUP BY meeting_id`,
+          [meetingIds]
+        ),
+      ]);
+
+      const totalGuests = guestCounts.reduce((s, r) => s + r.cnt, 0);
 
       // Aggregate stats per member
       const memberMap = new Map<string, { name: string; type: string; presences: number; absences: number }>();
@@ -180,8 +188,9 @@ export async function GET(request: Request) {
         .map((m) => ({ ...m, taxa: m.presences + m.absences > 0 ? Math.round((m.presences / (m.presences + m.absences)) * 100) : 0 }))
         .sort((a, b) => b.presences - a.presences);
 
-      const totalPresent = attendance.filter((a) => a.is_present).length;
+      const totalPresent = attendance.filter((a) => a.is_present).length + totalGuests;
       const totalAbsent = attendance.filter((a) => !a.is_present).length;
+      const total = attendance.length + totalGuests;
 
       return NextResponse.json({
         mode: 'title_group',
@@ -196,10 +205,10 @@ export async function GET(request: Request) {
         })),
         memberStats,
         summary: {
-          total: attendance.length,
+          total,
           totalPresent,
           totalAbsent,
-          avgRate: attendance.length > 0 ? Math.round((totalPresent / attendance.length) * 100) : 0,
+          avgRate: total > 0 ? Math.round((totalPresent / total) * 100) : 0,
         },
       });
     }
@@ -223,34 +232,42 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Encontro não encontrado' }, { status: 404 });
       }
 
-      const attendance = await queryMany<{
-        member_id: string;
-        member_name: string;
-        member_type: string;
-        is_present: boolean;
-      }>(
-        `SELECT a.member_id, m.full_name as member_name, m.member_type, a.is_present
-         FROM attendance a
-         JOIN members m ON m.id = a.member_id
-         WHERE a.meeting_id = $1
-         ORDER BY m.full_name ASC`,
-        [meetingId]
-      );
+      const [attendance, guests] = await Promise.all([
+        queryMany<{
+          member_id: string;
+          member_name: string;
+          member_type: string;
+          is_present: boolean;
+        }>(
+          `SELECT a.member_id, m.full_name as member_name, m.member_type, a.is_present
+           FROM attendance a
+           JOIN members m ON m.id = a.member_id
+           WHERE a.meeting_id = $1
+           ORDER BY m.full_name ASC`,
+          [meetingId]
+        ),
+        queryMany<{ full_name: string; phone: string | null }>(
+          `SELECT g.full_name, g.phone FROM attendance_guests ag JOIN guest_visitors g ON g.id = ag.guest_id WHERE ag.meeting_id = $1 ORDER BY g.full_name ASC`,
+          [meetingId]
+        ),
+      ]);
 
       const present = attendance.filter((a) => a.is_present);
       const absent = attendance.filter((a) => !a.is_present);
+      const guestCount = guests.length;
+      const totalPresent = present.length + guestCount;
+      const total = attendance.length + guestCount;
 
       return NextResponse.json({
         mode: 'meeting',
         meeting,
         attendance,
+        guests,
         summary: {
-          total: attendance.length,
-          present: present.length,
+          total,
+          present: totalPresent,
           absent: absent.length,
-          rate: attendance.length > 0
-            ? Math.round((present.length / attendance.length) * 100)
-            : 0,
+          rate: total > 0 ? Math.round((totalPresent / total) * 100) : 0,
         },
       });
     }
@@ -310,23 +327,31 @@ export async function GET(request: Request) {
 
     const meetingIds = meetings.map((m) => m.id);
 
-    // Buscar todas as presenças
-    const attendance = await queryMany<{
-      meeting_id: string;
-      member_id: string;
-      member_name: string;
-      member_type: string;
-      is_present: boolean;
-    }>(
-      `SELECT 
-         a.meeting_id, a.member_id,
-         m.full_name as member_name, m.member_type,
-         a.is_present
-       FROM attendance a
-       JOIN members m ON m.id = a.member_id
-       WHERE a.meeting_id = ANY($1::uuid[])`,
-      [meetingIds]
-    );
+    // Buscar todas as presenças (membros) e contagem de visitantes por encontro
+    const [attendance, guestCounts] = await Promise.all([
+      queryMany<{
+        meeting_id: string;
+        member_id: string;
+        member_name: string;
+        member_type: string;
+        is_present: boolean;
+      }>(
+        `SELECT 
+           a.meeting_id, a.member_id,
+           m.full_name as member_name, m.member_type,
+           a.is_present
+         FROM attendance a
+         JOIN members m ON m.id = a.member_id
+         WHERE a.meeting_id = ANY($1::uuid[])`,
+        [meetingIds]
+      ),
+      queryMany<{ meeting_id: string; cnt: number }>(
+        `SELECT meeting_id, COUNT(*)::int as cnt FROM attendance_guests WHERE meeting_id = ANY($1::uuid[]) GROUP BY meeting_id`,
+        [meetingIds]
+      ),
+    ]);
+
+    const guestCountByMeeting = new Map(guestCounts.map((r) => [r.meeting_id, r.cnt]));
 
     // Agrupar por período
     const periodMap = new Map<string, { presentes: number; ausentes: number; meetingCount: number }>();
@@ -346,6 +371,8 @@ export async function GET(request: Request) {
           periodMap.get(key)!.ausentes++;
         }
       }
+      const guestsInMeeting = guestCountByMeeting.get(meeting.id) ?? 0;
+      periodMap.get(key)!.presentes += guestsInMeeting;
     }
 
     // Construir array de dados por período, ordenado

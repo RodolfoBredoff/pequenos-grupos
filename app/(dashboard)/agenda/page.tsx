@@ -53,9 +53,14 @@ export default async function AgendaPage() {
       `SELECT 
          m.id, m.group_id, m.meeting_date, m.meeting_time, m.is_cancelled, 
          m.title, m.notes, m.meeting_type, m.created_at,
-         COUNT(a.id)::int as attendance_count
+         (COUNT(a.id)::int + COALESCE(MAX(ag.guest_count), 0)) as attendance_count
        FROM meetings m
        LEFT JOIN attendance a ON a.meeting_id = m.id
+       LEFT JOIN (
+         SELECT meeting_id, COUNT(*)::int as guest_count
+         FROM attendance_guests
+         GROUP BY meeting_id
+       ) ag ON ag.meeting_id = m.id
        WHERE m.group_id = $1 AND m.meeting_date < CURRENT_DATE
        GROUP BY m.id, m.group_id, m.meeting_date, m.meeting_time, m.is_cancelled,
                 m.title, m.notes, m.meeting_type, m.created_at
