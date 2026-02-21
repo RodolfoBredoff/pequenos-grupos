@@ -1,5 +1,5 @@
 import { getCurrentLeader } from '@/lib/db/queries';
-import { getMeetingsForPresence, getMembersByLeaderGroup, getAttendanceByMeeting } from '@/lib/db/queries';
+import { getMeetingsForPresence, getMembersByLeaderGroup, getAttendanceByMeeting, getAttendanceGuestsByMeeting } from '@/lib/db/queries';
 import { ChamadaWithSelector } from '@/components/chamada/chamada-with-selector';
 import { formatDate } from '@/lib/utils';
 
@@ -32,7 +32,10 @@ export default async function ChamadaPage() {
     );
   }
 
-  const attendance = await getAttendanceByMeeting(defaultMeeting.id);
+  const [attendance, defaultGuests] = await Promise.all([
+    getAttendanceByMeeting(defaultMeeting.id),
+    getAttendanceGuestsByMeeting(defaultMeeting.id),
+  ]);
 
   const attendanceForClient = attendance.map((a) => ({
     member_id: a.member_id,
@@ -59,6 +62,7 @@ export default async function ChamadaPage() {
         members={members.map((m) => ({ id: m.id, full_name: m.full_name }))}
         defaultMeetingId={defaultMeeting.id}
         defaultAttendance={attendanceForClient}
+        defaultGuests={defaultGuests}
       />
     </div>
   );

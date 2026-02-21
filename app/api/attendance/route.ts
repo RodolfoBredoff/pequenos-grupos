@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { getCurrentLeader } from '@/lib/db/queries';
-import { saveAttendance, getAttendanceByMeeting } from '@/lib/db/queries';
+import { saveAttendance, getAttendanceByMeeting, getAttendanceGuestsByMeeting } from '@/lib/db/queries';
 import { queryOne } from '@/lib/db/postgres';
 
 /**
  * GET /api/attendance?meeting_id=uuid
- * Retorna presenças de uma reunião do grupo do líder
+ * Retorna presenças de uma reunião (membros + visitantes não cadastrados)
  */
 export async function GET(request: Request) {
   try {
@@ -30,8 +30,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Reunião não encontrada' }, { status: 404 });
     }
 
-    const attendance = await getAttendanceByMeeting(meetingId);
-    return NextResponse.json(attendance);
+    const [attendance, guests] = await Promise.all([
+      getAttendanceByMeeting(meetingId),
+      getAttendanceGuestsByMeeting(meetingId),
+    ]);
+    return NextResponse.json({ attendance, guests });
   } catch (error) {
     console.error('Erro ao buscar presenças:', error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json();
-    const { meeting_id, attendance } = data;
+    const { meeting_id, attendance, guests } = data;
 
     if (!meeting_id || !Array.isArray(attendance)) {
       return NextResponse.json(
@@ -68,7 +71,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Reunião não encontrada' }, { status: 404 });
     }
 
-    await saveAttendance(meeting_id, attendance);
+    const guestList = Array.isArray(guests)
+      ? guests.map((g: { full_name?: string; phone?: string | null }) => ({
+          full_name: typeof g.full_name === 'string' ? g.full_name : '',
+          phone: g.phone ?? null,
+        }))
+      : [];
+
+    await saveAttendance(meeting_id, attendance, {
+      groupId: meeting.group_id,
+      guests: guestList,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -82,31 +82,31 @@ export function DashboardNav({ groupName, leaderDisplayName, role = 'leader' }: 
       </aside>
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-pb">
-        <div className="flex justify-around items-stretch min-h-14 px-0.5 py-1">
+        <div className="flex items-stretch min-h-14 px-1 py-1 overflow-x-auto overflow-y-hidden">
           {[
-            { href: '/dashboard', label: 'Início', icon: <Home className="h-5 w-5 shrink-0" />, ph: 'h-5 w-5' },
-            { href: '/pessoas', label: 'Pessoas', icon: <Users className="h-5 w-5 shrink-0" />, ph: 'h-5 w-5' },
-            { href: '/chamada', label: 'Chamada', icon: <ClipboardCheck className="h-5 w-5 shrink-0" />, ph: 'h-5 w-5' },
-            { href: '/agenda', label: 'Agenda', icon: <Calendar className="h-5 w-5 shrink-0" />, ph: 'h-5 w-5' },
-            { href: '/engajamento', label: 'Engaj.', icon: <TrendingUp className="h-5 w-5 shrink-0" />, ph: 'h-5 w-5' },
-            ...(!isSecretary ? [{ href: '/configuracoes', label: 'Grupo', icon: <Settings className="h-5 w-5 shrink-0" />, ph: 'h-5 w-5' }] : []),
-            { href: '/conta', label: 'Conta', icon: <UserCircle className="h-5 w-5 shrink-0" />, ph: 'h-5 w-5' },
+            { href: '/dashboard', label: 'Início', icon: <Home className="h-6 w-6 shrink-0" />, ph: 'h-6 w-6' },
+            { href: '/pessoas', label: 'Pessoas', icon: <Users className="h-6 w-6 shrink-0" />, ph: 'h-6 w-6' },
+            { href: '/chamada', label: 'Chamada', icon: <ClipboardCheck className="h-6 w-6 shrink-0" />, ph: 'h-6 w-6' },
+            { href: '/agenda', label: 'Agenda', icon: <Calendar className="h-6 w-6 shrink-0" />, ph: 'h-6 w-6' },
+            { href: '/engajamento', label: 'Engaj.', icon: <TrendingUp className="h-6 w-6 shrink-0" />, ph: 'h-6 w-6' },
+            ...(!isSecretary ? [{ href: '/configuracoes', label: 'Grupo', icon: <Settings className="h-6 w-6 shrink-0" />, ph: 'h-6 w-6' }] : []),
+            { href: '/conta', label: 'Conta', icon: <UserCircle className="h-6 w-6 shrink-0" />, ph: 'h-6 w-6' },
           ].map(({ href, label, icon, ph }) => (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center flex-1 min-w-0 py-1.5 px-0.5 rounded-lg text-muted-foreground transition-colors hover:text-primary hover:bg-accent active:text-primary"
+              className="flex flex-col items-center justify-center shrink-0 py-1.5 px-3 rounded-lg text-muted-foreground transition-colors hover:text-primary hover:bg-accent active:text-primary min-w-[56px]"
             >
               {mounted ? icon : <span className={`inline-block shrink-0 ${ph}`} aria-hidden />}
-              <span className="text-[10px] font-medium mt-0.5 truncate max-w-full">{label}</span>
+              <span className="text-[10px] font-medium mt-0.5 truncate max-w-[72px]">{label}</span>
             </Link>
           ))}
-          <form action={logout} className="flex flex-1 min-w-0">
+          <form action={logout} className="flex shrink-0">
             <button
               type="submit"
-              className="flex flex-col items-center justify-center flex-1 min-w-0 py-1.5 px-0.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg"
+              className="flex flex-col items-center justify-center py-1.5 px-3 min-w-[56px] text-muted-foreground hover:text-destructive transition-colors rounded-lg"
             >
-              {mounted ? <LogOut className="h-5 w-5 shrink-0" /> : <span className="h-5 w-5 inline-block shrink-0" aria-hidden />}
+              {mounted ? <LogOut className="h-6 w-6 shrink-0" /> : <span className="h-6 w-6 inline-block shrink-0" aria-hidden />}
               <span className="text-[10px] font-medium mt-0.5">Sair</span>
             </button>
           </form>

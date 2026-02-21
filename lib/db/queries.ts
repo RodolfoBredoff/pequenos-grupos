@@ -48,6 +48,14 @@ export interface Attendance {
   created_at: string;
 }
 
+export interface GuestVisitor {
+  id: string;
+  group_id: string;
+  full_name: string;
+  phone: string | null;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   group_id: string;
@@ -351,20 +359,50 @@ export async function getAttendanceByMeeting(meetingId: string): Promise<Attenda
 }
 
 /**
- * Salva presenças de uma reunião
+ * Busca visitantes presentes em um encontro
+ */
+export async function getAttendanceGuestsByMeeting(meetingId: string): Promise<GuestVisitor[]> {
+  return queryMany<GuestVisitor>(
+    `SELECT g.id, g.group_id, g.full_name, g.phone, g.created_at
+     FROM attendance_guests ag
+     JOIN guest_visitors g ON g.id = ag.guest_id
+     WHERE ag.meeting_id = $1
+     ORDER BY g.full_name ASC`,
+    [meetingId]
+  );
+}
+
+export async function getGuestVisitorById(id: string): Promise<GuestVisitor | null> {
+  return queryOne<GuestVisitor>(
+    `SELECT id, group_id, full_name, phone, created_at FROM guest_visitors WHERE id = $1`,
+    [id]
+  );
+}
+
+/**
+ * Salva presenças de uma reunião (membros + visitantes não cadastrados)
  */
 export async function saveAttendance(
   meetingId: string,
-  attendance: Array<{ member_id: string; is_present: boolean }>
+  attendance: Array<{ member_id: string; is_present: boolean }>,
+  options: { groupId: string; guests?: Array<{ full_name: string; phone?: string | null }> } = { groupId: '' }
 ): Promise<void> {
+  const { groupId, guests = [] } = options;
+
   await transaction(async (client) => {
-    // Remover presenças existentes
+    // Remover presenças existentes (membros)
     await client.query(
       `DELETE FROM attendance WHERE meeting_id = $1`,
       [meetingId]
     );
 
-    // Inserir novas presenças
+    // Remover visitantes do encontro
+    await client.query(
+      `DELETE FROM attendance_guests WHERE meeting_id = $1`,
+      [meetingId]
+    );
+
+    // Inserir presenças dos membros
     for (const item of attendance) {
       await client.query(
         `INSERT INTO attendance (meeting_id, member_id, is_present)
@@ -372,6 +410,32 @@ export async function saveAttendance(
          ON CONFLICT (meeting_id, member_id)
          DO UPDATE SET is_present = EXCLUDED.is_present`,
         [meetingId, item.member_id, item.is_present]
+      );
+    }
+
+    // Inserir visitantes não cadastrados: criar ou reutilizar guest e vincular ao encontro
+    for (const g of guests) {
+      const name = (g.full_name || '').trim();
+      if (!name) continue;
+      const phone = (g.phone || '').trim() || null;
+
+      let guestId: string;
+      const existing = await client.query(
+        `SELECT id FROM guest_visitors WHERE group_id = $1 AND LOWER(TRIM(full_name)) = LOWER($2) AND COALESCE(TRIM(phone), '') = COALESCE($3, '') LIMIT 1`,
+        [groupId, name, phone || '']
+      );
+      if (existing.rows.length > 0) {
+        guestId = existing.rows[0].id;
+      } else {
+        const insert = await client.query(
+          `INSERT INTO guest_visitors (group_id, full_name, phone) VALUES ($1, $2, $3) RETURNING id`,
+          [groupId, name, phone]
+        );
+        guestId = insert.rows[0].id;
+      }
+      await client.query(
+        `INSERT INTO attendance_guests (meeting_id, guest_id) VALUES ($1, $2) ON CONFLICT (meeting_id, guest_id) DO NOTHING`,
+        [meetingId, guestId]
       );
     }
   });

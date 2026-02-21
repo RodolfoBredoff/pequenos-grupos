@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOfflineSync } from '@/hooks/use-offline-sync';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
-import { Loader2, Save, WifiOff } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, Save, WifiOff, UserPlus, UserCheck } from 'lucide-react';
 
 interface Member {
   id: string;
@@ -17,13 +18,29 @@ interface Attendance {
   is_present: boolean;
 }
 
+export interface GuestItem {
+  id?: string;
+  full_name: string;
+  phone?: string | null;
+}
+
 interface PresenceChecklistProps {
   meetingId: string;
   members: Member[];
   attendance: Attendance[];
+  guests?: GuestItem[];
+  onSaved?: () => void;
+  onConvertToMember?: () => void;
 }
 
-export function PresenceChecklist({ meetingId, members, attendance }: PresenceChecklistProps) {
+export function PresenceChecklist({
+  meetingId,
+  members,
+  attendance,
+  guests: initialGuests = [],
+  onSaved,
+  onConvertToMember,
+}: PresenceChecklistProps) {
   const { isOnline, addToPendingSync } = useOfflineSync();
   const [presenceMap, setPresenceMap] = useState<Record<string, boolean>>(
     attendance.reduce((acc, att) => {
@@ -31,31 +48,71 @@ export function PresenceChecklist({ meetingId, members, attendance }: PresenceCh
       return acc;
     }, {} as Record<string, boolean>)
   );
+  const [guests, setGuests] = useState<GuestItem[]>(initialGuests);
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setGuests(initialGuests);
+  }, [initialGuests]);
 
   const togglePresence = (memberId: string) => {
     setPresenceMap((prev) => ({ ...prev, [memberId]: !prev[memberId] }));
   };
 
+  const addGuest = () => {
+    const name = guestName.trim();
+    if (!name) return;
+    setGuests((prev) => [...prev, { full_name: name, phone: guestPhone.trim() || null }]);
+    setGuestName('');
+    setGuestPhone('');
+  };
+
+  const removeGuest = (index: number) => {
+    setGuests((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const convertToMember = async (guestId: string) => {
+    setConvertingId(guestId);
+    try {
+      const res = await fetch(`/api/guests/${guestId}/convert`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Erro ao converter');
+      }
+      setGuests((prev) => prev.filter((g) => g.id !== guestId));
+      onConvertToMember?.();
+      alert('Visitante convertido em membro com sucesso!');
+    } catch (e: unknown) {
+      alert('Erro: ' + (e instanceof Error ? e.message : 'Erro ao converter'));
+    } finally {
+      setConvertingId(null);
+    }
+  };
+
   const saveAttendance = async () => {
     setSaving(true);
-    
+
     try {
       const attendanceData = members.map((member) => ({
         member_id: member.id,
         is_present: presenceMap[member.id] ?? false,
       }));
+      const guestsPayload = guests.map((g) => ({
+        full_name: g.full_name,
+        phone: g.phone ?? null,
+      }));
 
       if (isOnline) {
-        // Online: salvar via API
         const response = await fetch('/api/attendance', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             meeting_id: meetingId,
             attendance: attendanceData,
+            guests: guestsPayload,
           }),
         });
 
@@ -65,8 +122,8 @@ export function PresenceChecklist({ meetingId, members, attendance }: PresenceCh
         }
 
         alert('Presença salva com sucesso!');
+        onSaved?.();
       } else {
-        // Offline: adicionar à fila de sync
         for (const item of attendanceData) {
           await addToPendingSync('attendance', 'create', {
             meeting_id: meetingId,
@@ -75,16 +132,17 @@ export function PresenceChecklist({ meetingId, members, attendance }: PresenceCh
         }
         alert('Presença salva localmente! Será sincronizada quando a conexão voltar.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving attendance:', error);
-      alert('Erro ao salvar presença: ' + error.message);
+      alert('Erro ao salvar presença: ' + (error instanceof Error ? error.message : 'Erro'));
     } finally {
       setSaving(false);
     }
   };
 
-  const presentCount = Object.values(presenceMap).filter(Boolean).length;
-  const absentCount = members.length - presentCount;
+  const presentCount =
+    Object.values(presenceMap).filter(Boolean).length + guests.length;
+  const absentCount = members.length - Object.values(presenceMap).filter(Boolean).length;
 
   return (
     <div className="space-y-6">
@@ -115,6 +173,74 @@ export function PresenceChecklist({ meetingId, members, attendance }: PresenceCh
           </Card>
         ))}
       </div>
+
+      <Card className="p-4 space-y-3">
+        <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <UserPlus className="h-4 w-4" />
+          Visitante não cadastrado
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            placeholder="Nome"
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addGuest()}
+          />
+          <Input
+            placeholder="Telefone (opcional)"
+            value={guestPhone}
+            onChange={(e) => setGuestPhone(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addGuest()}
+          />
+          <Button type="button" variant="secondary" onClick={addGuest} disabled={!guestName.trim()}>
+            Adicionar
+          </Button>
+        </div>
+        {guests.length > 0 && (
+          <ul className="space-y-2 mt-2">
+            {guests.map((g, i) => (
+              <li
+                key={g.id ?? `new-${i}`}
+                className="flex items-center justify-between gap-2 py-1 border-b border-border/50 last:border-0"
+              >
+                <span className="text-sm">
+                  {g.full_name}
+                  {g.phone ? (
+                    <span className="text-muted-foreground ml-1">— {g.phone}</span>
+                  ) : null}
+                </span>
+                <div className="flex items-center gap-1">
+                  {g.id ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => convertToMember(g.id!)}
+                      disabled={convertingId === g.id}
+                      title="Converter em membro"
+                    >
+                      {convertingId === g.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <UserCheck className="h-4 w-4" />
+                      )}
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeGuest(i)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    Remover
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Button 
         onClick={saveAttendance} 

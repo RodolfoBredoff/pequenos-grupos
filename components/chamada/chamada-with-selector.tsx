@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { PresenceChecklist } from './presence-checklist';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate, getDayOfWeekName } from '@/lib/utils';
@@ -24,11 +25,21 @@ interface Attendance {
   is_present: boolean;
 }
 
+export interface GuestVisitor {
+  id: string;
+  group_id: string;
+  full_name: string;
+  phone: string | null;
+  created_at?: string;
+}
+
 interface ChamadaWithSelectorProps {
   meetings: Meeting[];
   members: Member[];
   defaultMeetingId: string;
   defaultAttendance: Attendance[];
+  defaultGuests?: GuestVisitor[];
+  onMembersRefresh?: () => void;
 }
 
 export function ChamadaWithSelector({
@@ -36,25 +47,57 @@ export function ChamadaWithSelector({
   members,
   defaultMeetingId,
   defaultAttendance,
+  defaultGuests = [],
+  onMembersRefresh,
 }: ChamadaWithSelectorProps) {
+  const router = useRouter();
   const [selectedMeetingId, setSelectedMeetingId] = useState(defaultMeetingId);
   const [attendance, setAttendance] = useState<Attendance[]>(defaultAttendance);
+  const [guests, setGuests] = useState<GuestVisitor[]>(defaultGuests);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
 
+  const handleConvertToMember = () => {
+    router.refresh();
+    onMembersRefresh?.();
+  };
+
   const selectedMeeting = meetings.find((m) => m.id === selectedMeetingId);
+
+  const fetchAttendance = (meetingId: string) => {
+    return fetch(`/api/attendance?meeting_id=${meetingId}`)
+      .then((res) => (res.ok ? res.json() : { attendance: [], guests: [] }))
+      .then((data: { attendance?: Attendance[]; guests?: GuestVisitor[] }) => ({
+        attendance: Array.isArray(data.attendance) ? data.attendance : [],
+        guests: Array.isArray(data.guests) ? data.guests : [],
+      }));
+  };
 
   useEffect(() => {
     if (selectedMeetingId === defaultMeetingId) {
       setAttendance(defaultAttendance);
+      setGuests(defaultGuests);
       return;
     }
     setLoadingAttendance(true);
-    fetch(`/api/attendance?meeting_id=${selectedMeetingId}`)
-      .then((res) => res.ok ? res.json() : [])
-      .then((data) => setAttendance(data))
-      .catch(() => setAttendance([]))
+    fetchAttendance(selectedMeetingId)
+      .then(({ attendance: a, guests: g }) => {
+        setAttendance(a);
+        setGuests(g);
+      })
+      .catch(() => {
+        setAttendance([]);
+        setGuests([]);
+      })
       .finally(() => setLoadingAttendance(false));
-  }, [selectedMeetingId, defaultMeetingId, defaultAttendance]);
+  }, [selectedMeetingId, defaultMeetingId, defaultAttendance, defaultGuests]);
+
+  const handleSaved = () => {
+    if (!selectedMeetingId) return;
+    fetchAttendance(selectedMeetingId).then(({ attendance: a, guests: g }) => {
+      setAttendance(a);
+      setGuests(g);
+    });
+  };
 
   if (meetings.length === 0) {
     return (
@@ -113,6 +156,9 @@ export function ChamadaWithSelector({
                 meetingId={selectedMeeting.id}
                 members={members}
                 attendance={attendance}
+                guests={guests}
+                onSaved={handleSaved}
+                onConvertToMember={handleConvertToMember}
               />
             )
           ) : (
