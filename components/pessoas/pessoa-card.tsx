@@ -1,13 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { WhatsAppButton } from './whatsapp-button';
 import { LinkButton } from '@/components/ui/link-button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { calculateAge, formatPhone, isTodayBirthday } from '@/lib/utils';
 import { MEMBER_TYPE_LABELS } from '@/lib/constants';
-import { Pencil, Cake, AlertTriangle } from 'lucide-react';
+import { Pencil, Cake, AlertTriangle, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MemberAttendanceStats } from './member-attendance-stats';
 
 type AttendanceStatus = 'present' | 'absent' | 'at-risk';
 
@@ -47,6 +56,8 @@ const attendanceConfig: Record<
 };
 
 export function PessoaCard({ member, attendanceStatus }: PessoaCardProps) {
+  const [showPresenca, setShowPresenca] = useState(false);
+
   let age: number | null = null;
   if (member.birth_date) {
     try {
@@ -59,6 +70,7 @@ export function PessoaCard({ member, attendanceStatus }: PessoaCardProps) {
   const attendance = attendanceStatus ? attendanceConfig[attendanceStatus] : null;
 
   return (
+    <>
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
@@ -98,13 +110,38 @@ export function PessoaCard({ member, attendanceStatus }: PessoaCardProps) {
         </div>
       </CardContent>
 
-      <CardFooter className="p-4 pt-0 flex gap-2">
-        <WhatsAppButton phone={member.phone} name={member.full_name} className="flex-1" />
-        <LinkButton href={`/pessoas/${member.id}`} variant="outline" size="sm" className="flex-1 w-full">
+      <CardFooter className="p-4 pt-0 flex flex-wrap gap-2">
+        <WhatsAppButton phone={member.phone} name={member.full_name} className="flex-1 min-w-0" />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="flex-1 min-w-0"
+          onClick={() => setShowPresenca(true)}
+        >
+          <CalendarCheck className="h-4 w-4 shrink-0" />
+          Ver presença
+        </Button>
+        <LinkButton href={`/pessoas/${member.id}`} variant="outline" size="sm" className="flex-1 min-w-0 w-full">
           <Pencil className="h-4 w-4" />
           Editar
         </LinkButton>
       </CardFooter>
     </Card>
+
+    <Dialog open={showPresenca} onOpenChange={setShowPresenca}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4" />
+            Presença — {member.full_name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="pt-2">
+          <MemberAttendanceStats memberId={member.id} embedded />
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -18,7 +18,13 @@ interface AttendanceStats {
   byTitle: ByTitleRow[];
 }
 
-export function MemberAttendanceStats({ memberId }: { memberId: string }) {
+interface MemberAttendanceStatsProps {
+  memberId: string;
+  /** Quando true, não renderiza o Card externo (para uso dentro de dialog) */
+  embedded?: boolean;
+}
+
+export function MemberAttendanceStats({ memberId, embedded = false }: MemberAttendanceStatsProps) {
   const [data, setData] = useState<AttendanceStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,11 +38,17 @@ export function MemberAttendanceStats({ memberId }: { memberId: string }) {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="py-8 flex items-center justify-center">
+      <div className={embedded ? 'py-6 flex items-center justify-center' : ''}>
+        {embedded ? (
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+        ) : (
+          <Card>
+            <CardContent className="py-8 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </CardContent>
+          </Card>
+        )}
+      </div>
     );
   }
 
@@ -48,15 +60,8 @@ export function MemberAttendanceStats({ memberId }: { memberId: string }) {
     ? Math.round((data.totalPresent / data.totalMeetings) * 100)
     : 0;
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <CalendarCheck className="h-4 w-4" />
-          Presença em Encontros
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+  const content = (
+    <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-lg border p-3 text-center">
             <p className="text-2xl font-bold text-foreground">{data.totalMeetings}</p>
@@ -111,6 +116,23 @@ export function MemberAttendanceStats({ memberId }: { memberId: string }) {
             Nenhum registro de presença ainda.
           </p>
         )}
+    </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CalendarCheck className="h-4 w-4" />
+          Presença em Encontros
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {content}
       </CardContent>
     </Card>
   );
