@@ -64,54 +64,42 @@ jobs:
 
       - name: Verify EC2 is registered with SSM
         run: |
-          INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          INSTANCE_ID="$(echo '${{ secrets.EC2_INSTANCE_ID }}' | tr -d '[:space:]')"
           REGION="${{ env.AWS_REGION }}"
 
-          # DIAGNÓSTICO 1: quem está assumindo a role? (mostra conta + role ARN)
-          echo "=== Conta/role assumida (sts get-caller-identity) ==="
-          aws sts get-caller-identity --output json
-          echo "======================================================"
-
-          # DIAGNÓSTICO 2: TODAS as instâncias visíveis (sem filtro)
-          echo "=== Instâncias registradas no SSM (sem filtro) ==="
-          aws ssm describe-instance-information \
-            --region "$REGION" \
-            --query "InstanceInformationList[].{Id:InstanceId,Ping:PingStatus}" \
-            --output json 2>&1
-          echo "======================================================"
-
-          # Captura a resposta real do filtro pelo ID
-          RAW="$(aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+          # DIAGNÓSTICO: lista todas as instâncias visíveis
+          echo "=== Instâncias registradas no SSM ==="
+          ALL="$(aws ssm describe-instance-information \
             --region "$REGION" \
             --output json 2>&1)"
 
-          # Erro de permissão na role do GitHub Actions (OIDC)
-          if echo "$RAW" | grep -qi "AccessDenied\|not authorized"; then
-            echo "::error::A role do GitHub Actions NÃO tem ssm:DescribeInstanceInformation."
-            echo "::error::Anexe AmazonSSMFullAccess ou a política .github/iam-policy-github-actions.json."
-            exit 1
-          fi
+          echo "$ALL" | jq -r '.InstanceInformationList[]? | "\(.InstanceId)  Ping=\(.PingStatus)"'
+          echo "======================================="
 
-          PING="$(echo "$RAW" | jq -r '.InstanceInformationList[0].PingStatus // empty' 2>/dev/null)"
+          # Extrai o PingStatus da instância alvo (da lista sem filtro, mais confiável)
+          PING="$(echo "$ALL" | jq -r --arg id "$INSTANCE_ID" \
+            '.InstanceInformationList[]? | select(.InstanceId == $id) | .PingStatus // empty' 2>/dev/null)"
 
           if [ "$PING" = "Online" ]; then
-            echo "EC2 instance is registered and Online in SSM"
+            echo "EC2 instance $INSTANCE_ID is Online in SSM"
+          elif [ -n "$PING" ]; then
+            echo "::error::EC2 instance $INSTANCE_ID PingStatus='$PING' (esperado 'Online'). SSM Agent perdeu conexao (CPU 100%?). Reboot da EC2."
+            exit 1
           else
-            echo "::error::EC2 instance $INSTANCE_ID PingStatus='${PING:-<não encontrada>}' (esperado 'Online')."
-            echo "::error::Verifique os dois diagnósticos acima:"
-            echo "::error::  1) Se a conta do get-caller-identity NÃO for 697697503238, o secret AWS_ROLE_ARN aponta para a conta errada."
-            echo "::error::  2) Se a conta estiver certa mas a instância não aparecer na lista 'sem filtro', o secret EC2_INSTANCE_ID está errado/desatualizado."
-            echo "::error::  3) Se a instância aparecer como ConnectionLost, o SSM Agent perdeu conexão (CPU 100%) → reboot da EC2."
+            echo "::error::EC2 instance $INSTANCE_ID nao encontrada no SSM (regiao: $REGION)."
+            echo "::error::Verifique: 1) O secret EC2_INSTANCE_ID tem o ID correto?"
+            echo "::error::  2) A instancia esta na regiao $REGION?"
+            echo "::error::  3) A role da EC2 tem AmazonSSMManagedInstanceCore?"
             exit 1
           fi
 
       - name: Stop containers on EC2 (libera CPU para o deploy)
         run: |
           set -e
+          INSTANCE_ID="$(echo '${{ secrets.EC2_INSTANCE_ID }}' | tr -d '[:space:]')"
           echo "Parando containers na EC2 para liberar CPU..."
           STOP_ID=$(aws ssm send-command \
-            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
               'cd ${{ env.APP_DIR }} && docker-compose down || true'
@@ -120,7 +108,7 @@ jobs:
             --output text --query "Command.CommandId" 2>/dev/null) || true
           if [ -n "$STOP_ID" ] && [ ${#STOP_ID} -ge 36 ]; then
             for i in {1..36}; do
-              S=$(aws ssm get-command-invocation --command-id "$STOP_ID" --instance-id "${{ secrets.EC2_INSTANCE_ID }}" --region ${{ env.AWS_REGION }} --query "Status" --output text 2>/dev/null || echo "InProgress")
+              S=$(aws ssm get-command-invocation --command-id "$STOP_ID" --instance-id "$INSTANCE_ID" --region ${{ env.AWS_REGION }} --query "Status" --output text 2>/dev/null || echo "InProgress")
               [ "$S" = "Success" ] || [ "$S" = "Failed" ] || [ "$S" = "Cancelled" ] && break
               echo "Aguardando stop... $S ($i/36)"
               sleep 5
@@ -132,10 +120,11 @@ jobs:
         id: deploy
         run: |
           set -e
-          echo "Deploying to EC2 instance ${{ secrets.EC2_INSTANCE_ID }} (dir: ${{ env.APP_DIR }})"
+          INSTANCE_ID="$(echo '${{ secrets.EC2_INSTANCE_ID }}' | tr -d '[:space:]')"
+          echo "Deploying to EC2 instance $INSTANCE_ID (dir: ${{ env.APP_DIR }})"
 
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
               'set -e',
@@ -165,7 +154,7 @@ jobs:
       - name: Wait and show deploy output
         run: |
           COMMAND_ID="${{ steps.deploy.outputs.command_id }}"
-          INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          INSTANCE_ID="$(echo '${{ secrets.EC2_INSTANCE_ID }}' | tr -d '[:space:]')"
           REGION="${{ env.AWS_REGION }}"
 
           # Aguardar comando completar (polling - waiter falha quando status=Failed)
@@ -212,9 +201,10 @@ jobs:
 
       - name: Health check
         run: |
+          INSTANCE_ID="$(echo '${{ secrets.EC2_INSTANCE_ID }}' | tr -d '[:space:]')"
           sleep 15
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=["curl -sf http://localhost:80/api/health || exit 1"]' \
             --region ${{ env.AWS_REGION }} \
@@ -222,12 +212,12 @@ jobs:
 
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --instance-id "$INSTANCE_ID" \
             --region ${{ env.AWS_REGION }}
 
           STATUS=$(aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --instance-id "$INSTANCE_ID" \
             --region ${{ env.AWS_REGION }} \
             --query "Status" --output text)
 
