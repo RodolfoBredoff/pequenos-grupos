@@ -8,8 +8,8 @@ services:
     image: ${DOCKER_IMAGE:-ghcr.io/rodolfobredoff/pequenos-grupos:latest}
     container_name: pequenos-grupos-app
     restart: unless-stopped
-    mem_limit: 384m
-    cpus: 0.5
+    mem_limit: 512m
+    cpus: 0.75
     ports:
       - "80:3000"   # host:container — expõe na porta 80 no host (padrão HTTP); app segue em 3000 no container
     environment:
