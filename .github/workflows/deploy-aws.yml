@@ -66,17 +66,37 @@ jobs:
         run: |
           INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
           REGION="${{ env.AWS_REGION }}"
-          if ! aws ssm describe-instance-information \
+
+          # Captura a resposta real (sem engolir erros) para diagnóstico preciso
+          RAW="$(aws ssm describe-instance-information \
             --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
             --region "$REGION" \
-            --query "InstanceInformationList[0].PingStatus" --output text 2>/dev/null | grep -q "Online"; then
-            echo "::error::EC2 instance $INSTANCE_ID is not registered or not Online in SSM."
-            echo "::error::Ensure: 1) IAM role with AmazonSSMManagedInstanceCore is attached to EC2"
-            echo "::error::2) SSM agent is running 3) Instance has network access to SSM endpoints"
-            echo "::error::Check: AWS Console → Systems Manager → Fleet Manager → see if instance appears"
+            --output json 2>&1)"
+
+          echo "=== Resposta do SSM describe-instance-information ==="
+          echo "$RAW"
+          echo "====================================================="
+
+          # Erro de permissão na role do GitHub Actions (OIDC)
+          if echo "$RAW" | grep -qi "AccessDenied\|not authorized"; then
+            echo "::error::A role do GitHub Actions NÃO tem ssm:DescribeInstanceInformation."
+            echo "::error::Anexe AmazonSSMFullAccess ou a política .github/iam-policy-github-actions.json à role: ${{ secrets.AWS_ROLE_ARN }}"
             exit 1
           fi
-          echo "EC2 instance is registered and Online in SSM"
+
+          PING="$(echo "$RAW" | jq -r '.InstanceInformationList[0].PingStatus // empty' 2>/dev/null)"
+
+          if [ "$PING" = "Online" ]; then
+            echo "EC2 instance is registered and Online in SSM"
+          else
+            echo "::error::EC2 instance $INSTANCE_ID PingStatus='${PING:-<não encontrada>}' (esperado 'Online')."
+            if [ "$PING" = "ConnectionLost" ]; then
+              echo "::error::Causa: SSM Agent perdeu conexao (CPU 100%?). Reboot a instancia no console EC2 e rode o workflow de novo."
+            else
+              echo "::error::Instância não registrada em $REGION ou ID incorreto. Verifique Fleet Manager."
+            fi
+            exit 1
+          fi
 
       - name: Stop containers on EC2 (libera CPU para o deploy)
         run: |
