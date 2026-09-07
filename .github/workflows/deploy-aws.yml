@@ -67,20 +67,29 @@ jobs:
           INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
           REGION="${{ env.AWS_REGION }}"
 
-          # Captura a resposta real (sem engolir erros) para diagnóstico preciso
+          # DIAGNÓSTICO 1: quem está assumindo a role? (mostra conta + role ARN)
+          echo "=== Conta/role assumida (sts get-caller-identity) ==="
+          aws sts get-caller-identity --output json
+          echo "======================================================"
+
+          # DIAGNÓSTICO 2: TODAS as instâncias visíveis (sem filtro)
+          echo "=== Instâncias registradas no SSM (sem filtro) ==="
+          aws ssm describe-instance-information \
+            --region "$REGION" \
+            --query "InstanceInformationList[].{Id:InstanceId,Ping:PingStatus}" \
+            --output json 2>&1
+          echo "======================================================"
+
+          # Captura a resposta real do filtro pelo ID
           RAW="$(aws ssm describe-instance-information \
             --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
             --region "$REGION" \
             --output json 2>&1)"
 
-          echo "=== Resposta do SSM describe-instance-information ==="
-          echo "$RAW"
-          echo "====================================================="
-
           # Erro de permissão na role do GitHub Actions (OIDC)
           if echo "$RAW" | grep -qi "AccessDenied\|not authorized"; then
             echo "::error::A role do GitHub Actions NÃO tem ssm:DescribeInstanceInformation."
-            echo "::error::Anexe AmazonSSMFullAccess ou a política .github/iam-policy-github-actions.json à role: ${{ secrets.AWS_ROLE_ARN }}"
+            echo "::error::Anexe AmazonSSMFullAccess ou a política .github/iam-policy-github-actions.json."
             exit 1
           fi
 
@@ -90,11 +99,10 @@ jobs:
             echo "EC2 instance is registered and Online in SSM"
           else
             echo "::error::EC2 instance $INSTANCE_ID PingStatus='${PING:-<não encontrada>}' (esperado 'Online')."
-            if [ "$PING" = "ConnectionLost" ]; then
-              echo "::error::Causa: SSM Agent perdeu conexao (CPU 100%?). Reboot a instancia no console EC2 e rode o workflow de novo."
-            else
-              echo "::error::Instância não registrada em $REGION ou ID incorreto. Verifique Fleet Manager."
-            fi
+            echo "::error::Verifique os dois diagnósticos acima:"
+            echo "::error::  1) Se a conta do get-caller-identity NÃO for 697697503238, o secret AWS_ROLE_ARN aponta para a conta errada."
+            echo "::error::  2) Se a conta estiver certa mas a instância não aparecer na lista 'sem filtro', o secret EC2_INSTANCE_ID está errado/desatualizado."
+            echo "::error::  3) Se a instância aparecer como ConnectionLost, o SSM Agent perdeu conexão (CPU 100%) → reboot da EC2."
             exit 1
           fi
 
